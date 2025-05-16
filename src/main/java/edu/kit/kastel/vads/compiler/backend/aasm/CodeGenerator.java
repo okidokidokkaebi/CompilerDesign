@@ -73,8 +73,8 @@ public class CodeGenerator {
             case AddNode add -> binary_src_dst(builder, registers, add, "add");
             case SubNode sub -> binary_src_dst(builder, registers, sub, "sub");
             case MulNode mul -> binary_src_dst(builder, registers, mul, "imul");
-            case DivNode div -> binary(builder, registers, div, "div");
-            case ModNode mod -> binary(builder, registers, mod, "mod");
+            case DivNode div -> binary_div_mod(builder, registers, div, "div");
+            case ModNode mod -> binary_div_mod(builder, registers, mod, "mod");
             case ReturnNode r -> builder.repeat(" ", 2).append("ret ")
                     .append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
             case ConstIntNode c -> builder.repeat(" ", 2)
@@ -103,6 +103,24 @@ public class CodeGenerator {
                 .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)))
                 .append(", ")
                 .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+    }
+
+    private static void binary_div_mod(
+            StringBuilder builder,
+            Map<Node, Register> registers,
+            BinaryOperationNode node,
+            String opcode
+    ) {
+        builder.repeat(" ", 2)
+                .append("mov %rdx, 0\n")
+                .append("mov %rax, ")
+                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)))
+                .append("\n")
+                .append("mov %rcx, ")
+                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)))
+                .append("\n")
+                .append("div %rcx\n")
+        ;
     }
 
     private static void binary(
