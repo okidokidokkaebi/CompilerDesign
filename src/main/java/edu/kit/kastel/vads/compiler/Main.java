@@ -52,6 +52,8 @@ public class Main {
         // TODO: generate assembly and invoke gcc instead of generating abstract assembly
         String s = new CodeGenerator().generateCode(graphs);
         Files.writeString(output, s);
+
+        Process cmdProc = Runtime.getRuntime().exec("gcc " + input + " -o " + output);
     }
 
     private static ProgramTree lexAndParse(Path input) throws IOException {
@@ -69,8 +71,8 @@ public class Main {
 
     private static void dumpGraph(IrGraph graph, Path path, String key) throws IOException {
         Files.writeString(
-            path.resolve(graph.name() + "-" + key + ".vcg"),
-            YCompPrinter.print(graph)
+                path.resolve(graph.name() + "-" + key + ".vcg"),
+                YCompPrinter.print(graph)
         );
     }
 }
