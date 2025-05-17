@@ -53,7 +53,7 @@ public class Main {
         String s = new CodeGenerator().generateCode(graphs);
         Files.writeString(output, s);
 
-        Process cmdProc = Runtime.getRuntime().exec("gcc " + input + " -o " + output);
+        // Process cmdProc = Runtime.getRuntime().exec("gcc " + input + " -o " + output);
     }
 
     private static ProgramTree lexAndParse(Path input) throws IOException {
