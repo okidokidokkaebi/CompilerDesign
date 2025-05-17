@@ -52,7 +52,6 @@ public class CodeGenerator {
                     .append(graph.name())
                     .append(":\n");
             generateForGraph(graph, builder, registers);
-            builder.append("}");
         }
         return builder.toString();
     }
