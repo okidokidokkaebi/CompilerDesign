@@ -63,7 +63,7 @@ public class CodeGenerator {
                 throw new AssertionError("Could not Optimize Tree");
             }
 
-            builder.append("ret ")
+            builder.append("  ret ")
                     .append("$")
                     .append(((ConstIntNode) last).value())
                     .append("\n");
@@ -87,6 +87,8 @@ public class CodeGenerator {
                 scan(predecessor, visited, builder, registers);
             }
         }
+
+        System.out.println(node);
 
         // ------------------
         //this.node_stack.add(node);

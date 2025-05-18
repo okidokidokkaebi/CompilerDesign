@@ -27,6 +27,9 @@ public class Main {
         }
         Path input = Path.of(args[0]);
         Path output = Path.of(args[1]);
+
+        Path generated_assembly = Path.of(args[1] + ".s");
+
         ProgramTree program = lexAndParse(input);
         try {
             new SemanticAnalysis(program).analyze();
@@ -51,9 +54,9 @@ public class Main {
 
         // TODO: generate assembly and invoke gcc instead of generating abstract assembly
         String s = new CodeGenerator().generateCode(graphs);
-        Files.writeString(output, s);
+        Files.writeString(generated_assembly, s);
 
-        // Process cmdProc = Runtime.getRuntime().exec("gcc " + input + " -o " + output);
+        Process cmdProc = Runtime.getRuntime().exec("gcc " + generated_assembly + " -o " + output);
     }
 
     private static ProgramTree lexAndParse(Path input) throws IOException {
