@@ -61,6 +61,12 @@ public class CodeGenerator {
                 throw new AssertionError("Could not Optimize Tree");
             }
 
+            builder.append("  movq $")
+                    .append(((ConstIntNode) last).value())
+                    .append(", ")
+                    .append("%rax")
+                    .append("\n");
+
             builder.append("  ret ")
                     .append("$")
                     .append(((ConstIntNode) last).value())
