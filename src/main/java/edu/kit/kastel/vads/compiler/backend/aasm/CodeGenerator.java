@@ -16,14 +16,12 @@ import edu.kit.kastel.vads.compiler.ir.node.ReturnNode;
 import edu.kit.kastel.vads.compiler.ir.node.StartNode;
 import edu.kit.kastel.vads.compiler.ir.node.SubNode;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static edu.kit.kastel.vads.compiler.ir.util.NodeSupport.predecessorSkipProj;
 
 public class CodeGenerator {
+    ArrayList<Node> node_stack;
 
     public String generateCode(List<IrGraph> program) {
         StringBuilder builder = new StringBuilder();
@@ -39,20 +37,42 @@ public class CodeGenerator {
                 movq $0x3C, %rax
                 syscall
                 """);
+
+        this.node_stack = new ArrayList<>();
+
         for (IrGraph graph : program) {
             AasmRegisterAllocator allocator = new AasmRegisterAllocator();
             Map<Node, Register> registers = allocator.allocateRegisters(graph);
-
-            builder.append("""
-                    _main:
-                    ; your generated code here
-                    """);
 
             builder.append("_")
                     .append(graph.name())
                     .append(":\n");
             generateForGraph(graph, builder, registers);
+
+            if (!(this.node_stack.removeLast() instanceof Block)) {
+                throw new AssertionError("Could not Optimize Tree");
+            }
+
+            if (!(this.node_stack.removeLast() instanceof ReturnNode)) {
+                throw new AssertionError("Could not Optimize Tree");
+            }
+
+            Node last = this.node_stack.removeLast();
+
+            if (!(last instanceof ConstIntNode)) {
+                throw new AssertionError("Could not Optimize Tree");
+            }
+
+            builder.append("ret ")
+                    .append("$")
+                    .append(((ConstIntNode) last).value())
+                    .append("\n");
         }
+
+//        for (Node node : node_stack) {
+//            System.out.println(node);
+//        }
+
         return builder.toString();
     }
 
@@ -68,27 +88,69 @@ public class CodeGenerator {
             }
         }
 
+        // ------------------
+        //this.node_stack.add(node);
         switch (node) {
-            case AddNode add -> binary_src_dst(builder, registers, add, "add");
-            case SubNode sub -> binary_src_dst(builder, registers, sub, "sub");
-            case MulNode mul -> binary_src_dst(builder, registers, mul, "imul");
-            case DivNode div -> binary_div_mod(builder, registers, div, "div");
-            case ModNode mod -> binary_div_mod(builder, registers, mod, "mod");
-            case ReturnNode r -> builder.repeat(" ", 2).append("ret ")
-                    .append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
-            case ConstIntNode c -> builder.repeat(" ", 2)
-                    .append("mov $")
-                    .append(c.value())
-                    .append(", ")
-                    .append(registers.get(c));
-            case Phi _ -> throw new UnsupportedOperationException("phi");
-            case Block _, ProjNode _, StartNode _ -> {
-                // do nothing, skip line break
-                return;
+            case AddNode add -> try_binary_op(add);
+            case SubNode sub -> try_binary_op(sub);
+            case MulNode mul -> try_binary_op(mul);
+            case DivNode div -> try_binary_op(div);
+            case ModNode mod -> try_binary_op(mod);
+            default -> {
+                this.node_stack.add(node);
             }
         }
-        builder.append("\n");
+        // ------------------
+//        switch (node) {
+//            case AddNode add -> binary_src_dst(builder, registers, add, "add");
+//            case SubNode sub -> binary_src_dst(builder, registers, sub, "sub");
+//            case MulNode mul -> binary_src_dst(builder, registers, mul, "imul");
+//            case DivNode div -> binary_div_mod(builder, registers, div, "div");
+//            case ModNode mod -> binary_div_mod(builder, registers, mod, "mod");
+//            case ReturnNode r -> builder.repeat(" ", 2).append("ret ")
+//                    .append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
+//            case ConstIntNode c -> builder.repeat(" ", 2)
+//                    .append("mov $")
+//                    .append(c.value())
+//                    .append(", ")
+//                    .append(registers.get(c));
+//            case Phi _ -> throw new UnsupportedOperationException("phi");
+//            case Block _, ProjNode _, StartNode _ -> {
+//                // do nothing, skip line break
+//                return;
+//            }
+//        }
+//        builder.append("\n");
     }
+
+    // ------------------
+    private void try_binary_op(Node operator) {
+        Node right = this.node_stack.removeLast();
+        Node left = this.node_stack.removeLast();
+        
+        if (right instanceof ConstIntNode) {
+            if (left instanceof ConstIntNode) {
+                Block Block;
+                switch (operator) {
+                    case AddNode add -> this.node_stack.add(new ConstIntNode(add.block(),
+                            ((ConstIntNode) left).value() + ((ConstIntNode) right).value()));
+                    case SubNode sub -> this.node_stack.add(new ConstIntNode(sub.block(),
+                            ((ConstIntNode) left).value() - ((ConstIntNode) right).value()));
+                    case MulNode mul -> this.node_stack.add(new ConstIntNode(mul.block(),
+                            ((ConstIntNode) left).value() * ((ConstIntNode) right).value()));
+                    case DivNode div -> this.node_stack.add(new ConstIntNode(div.block(),
+                            ((ConstIntNode) left).value() / ((ConstIntNode) right).value()));
+                    case ModNode mod -> this.node_stack.add(new ConstIntNode(mod.block(),
+                            ((ConstIntNode) left).value() % ((ConstIntNode) right).value()));
+                    default -> {
+                        this.node_stack.add(left);
+                        this.node_stack.add(right);
+                    }
+                }
+            }
+        }
+    }
+    // ------------------
 
     private static void binary_src_dst(
             StringBuilder builder,
