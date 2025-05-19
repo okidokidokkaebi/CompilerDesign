@@ -13,11 +13,15 @@ import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.semantic.SemanticAnalysis;
 import edu.kit.kastel.vads.compiler.semantic.SemanticException;
+import util.LiveRange;
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Main {
     public static void main(String[] args) throws IOException {
@@ -51,6 +55,90 @@ public class Main {
 
         // TODO: generate assembly and invoke gcc instead of generating abstract assembly
         String s = new CodeGenerator().generateCode(graphs);
+
+        // - - - - Linear Scan - - - -
+        HashMap<Integer, LiveRange> virtualRegisters = new HashMap<>();
+
+        BufferedReader bufReader = new BufferedReader(new StringReader(s));
+        String line = null;
+
+        boolean entered = false;
+        int lineNumber = 0;
+
+        while((line = bufReader.readLine()) != null) {
+
+            if (entered) {
+                String[] split = line.stripLeading().stripTrailing().split(" ");
+                List<String> clean = Arrays.stream(split).filter(str -> !str.contentEquals("")).toList();
+
+                for (String str : clean) {
+                    String sanitized_line = str.replace(",", "");
+
+                    if (sanitized_line.contains("%")) {
+                        sanitized_line = sanitized_line.replace("%", "");
+                        if (sanitized_line.contentEquals("rax")){ continue; }
+                        int parsed = Integer.parseInt(sanitized_line);
+
+                        if (virtualRegisters.containsKey(parsed)) {
+                            virtualRegisters.get(parsed).lastUsedLine = lineNumber;
+                        } else {
+
+                            virtualRegisters.put(parsed, new LiveRange(lineNumber, lineNumber));
+                        }
+
+                    }
+                }
+
+            }
+
+            if (line.contentEquals("_main:")) { entered = true; }
+            lineNumber++;
+        }
+
+        ArrayList<Map.Entry<Integer, LiveRange>> virtReg = new ArrayList<>(virtualRegisters.entrySet());
+        virtReg.sort(Comparator.comparingInt(left -> left.getValue().definedLine));
+        System.out.println(virtualRegisters);
+
+        String[] registers = {
+                "%r8",
+                "%r9",
+                "%r10",
+                "%r11",
+                "%r12",
+                "%r13",
+                "%r14",
+                "%r15",
+        };
+
+        List<Map.Entry<String, Integer>> active = new ArrayList<>();
+        Map<Integer, String> regAllocation = new HashMap<>();
+
+        for (Map.Entry<Integer, LiveRange> vreg : virtualRegisters.entrySet()) {
+            active = new ArrayList<>(active.stream().filter(entry -> {
+                if (entry.getValue() >= vreg.getValue().definedLine) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }).toList()
+            );
+
+            if (active.size() < registers.length) {
+                String reg = registers[active.size()];
+                regAllocation.put(vreg.getKey(), reg);
+                active.add(Map.entry(reg, vreg.getValue().lastUsedLine));
+            } else {
+                regAllocation.put(vreg.getKey(), "spilling...");
+            }
+        }
+
+        for (Map.Entry<Integer, String> reg : regAllocation.entrySet()) {
+            s = s.replace("%" + reg.getKey(), reg.getValue());
+        }
+
+        System.out.println(s);
+
+        // - - - - - - - - - - -
 
         Path generated_assembly = Path.of(args[1] + ".s");
         Files.writeString(generated_assembly, s);

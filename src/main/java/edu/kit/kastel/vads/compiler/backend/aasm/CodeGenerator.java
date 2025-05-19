@@ -67,8 +67,10 @@ public class CodeGenerator {
             case MulNode mul -> binary_src_dst(builder, registers, mul, "imul");
             case DivNode div -> binary_div_mod(builder, registers, div, "div");
             case ModNode mod -> binary_div_mod(builder, registers, mod, "mod");
-            case ReturnNode r -> builder.repeat(" ", 2).append("ret ")
-                    .append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
+            case ReturnNode r -> {}
+//                    builder.repeat(" ", 2).append("ret ")
+//                    .append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
+
             case ConstIntNode c -> builder.repeat(" ", 2)
                     .append("mov $")
                     .append(c.value())
@@ -89,12 +91,28 @@ public class CodeGenerator {
             BinaryOperationNode node,
             String opcode
     ) {
+
         builder.repeat(" ", 2)
                 .append(opcode)
                 .append(" ")
                 .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)))
                 .append(", ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)))
+                .append("\n");
+
+        if (registers.get(predecessorSkipProj(node.graph().successors(node).stream().toList().getFirst(), BinaryOperationNode.LEFT)) == null) {
+            builder.repeat(" ", 2)
+                    .append("mov ")
+                    .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)))
+                    .append(", ")
+                    .append("%rax");
+        } else {
+            builder.repeat(" ", 2)
+                    .append("mov ")
+                    .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)))
+                    .append(", ")
+                    .append(registers.get(predecessorSkipProj(node.graph().successors(node).stream().toList().getFirst(), BinaryOperationNode.LEFT)));
+        }
     }
 
     private static void binary_div_mod(
