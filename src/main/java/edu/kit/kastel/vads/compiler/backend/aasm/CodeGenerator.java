@@ -67,9 +67,8 @@ public class CodeGenerator {
             case MulNode mul -> binary_src_dst(builder, registers, mul, "imul");
             case DivNode div -> binary_div_mod(builder, registers, div, "div");
             case ModNode mod -> binary_div_mod(builder, registers, mod, "mod");
-            case ReturnNode r -> {}
-//                    builder.repeat(" ", 2).append("ret ")
-//                    .append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
+            case ReturnNode r ->
+                  builder.repeat(" ", 2).append("ret %rax");
 
             case ConstIntNode c -> builder.repeat(" ", 2)
                     .append("mov $")
