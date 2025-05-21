@@ -13,6 +13,13 @@ import static edu.kit.kastel.vads.compiler.ir.util.NodeSupport.predecessorSkipPr
 
 public class CodeGenerator {
 
+    public final static int indent = 2;
+
+    public final static String[] registers_64 = new String[]{
+            "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9",
+            "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
+    };
+
     public String generateCode(List<IrGraph> program) {
         StringBuilder builder = new StringBuilder();
         builder.append("""
@@ -57,20 +64,15 @@ public class CodeGenerator {
             case MulNode mul -> simpleBinaryOp(builder, registers, mul, "imul");
             case DivNode div -> binaryDivMod(builder, registers, div, "div");
             case ModNode mod -> binaryDivMod(builder, registers, mod, "div");
-            case ReturnNode r -> builder.repeat(" ", 2).append("ret ")
-                    .append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
-            case ConstIntNode c -> builder.repeat(" ", 2)
-                    .append("mov $")
-                    .append(c.value())
-                    .append(", ")
-                    .append(registers.get(c));
+            case ReturnNode r -> appendIndentedLine(builder, "ret", "");
+            case ConstIntNode c -> appendIndentedLine(builder, "mov", c.value(), registers.get(c));
             case Phi _ -> throw new UnsupportedOperationException("phi");
             case Block _, ProjNode _, StartNode _ -> {
                 // do nothing, skip line break
                 return;
             }
         }
-        builder.append("\n");
+        //builder.append("\n");
     }
 
     private static void simpleBinaryOp(
@@ -80,14 +82,9 @@ public class CodeGenerator {
             String opcode
     ) {
         // right = left <op> right
-        // TODO map registers to aasm registers
         // TODO check best result register
-        builder.repeat(" ", 2)
-                .append(opcode)
-                .append(" ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)))
-                .append(", ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+        appendIndentedLine(builder, opcode, registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)),
+                registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
     }
 
     private static void binaryDivMod(
@@ -96,45 +93,107 @@ public class CodeGenerator {
             BinaryOperationNode node,
             String opcode
     ) {
-        // %rcx = %rax <div> %rcx
-        // %rdx = %rax <mod> %rcx
-        builder.repeat(" ", 2)
-                .append("mov $0, %rdx\n");
+        // %rax = %rax </> %rcx <- nothing to do after op
+        // %rdx = %rax <%> %rcx
+        appendIndentedLine(builder, "mov", 0, "%rdx");
         Register reg;
-        // TODO map registers to aasm registers
         // check if first operand is already in %rax
         if (!"%rax".equals((reg = registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT))).toString())) {
-            builder.repeat(" ", 2)
-                    .append("mov ")
-                    .append(reg)
-                    .append(", %rax\n");
+            appendIndentedLine(builder, "mov", reg, "%rax");
         }
         // check if second operand is already in %rcx
         if (!"%rcx".equals((reg = registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT))).toString())) {
-            builder.repeat(" ", 2)
-                    .append("mov ")
-                    .append(reg)
-                    .append(", %rcx\n");
+            appendIndentedLine(builder, "mov", reg, "%rcx");
         }
         // perform operation
-        builder.repeat(" ", 2).append("div %rcx\n");
+        appendIndentedLine(builder, opcode, "%rcx");
+        // put correct result in %rax
         if (node instanceof ModNode) {
-            builder.repeat(" ", 2).append("mov %rdx, %rax\n");
+            appendIndentedLine(builder, "mov", "%rdx", "%rax");
         }
     }
 
-    private static void binary(
-            StringBuilder builder,
-            Map<Node, Register> registers,
-            BinaryOperationNode node,
-            String opcode
-    ) {
-        builder.repeat(" ", 2).append(registers.get(node))
-                .append(" = ")
+    private static String mapRegistersToAasm(Register reg) {
+        int regNo = reg.getRegisterNo();
+        if (regNo < 0 || regNo >= registers_64.length) {
+            // TODO variable needs to be put on stack
+            throw new IllegalArgumentException("Invalid register number: " + regNo);
+        }
+        return registers_64[reg.getRegisterNo()];
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, String reg) {
+        builder.repeat(" ", indent)
                 .append(opcode)
                 .append(" ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)))
+                .append(reg)
+                .append("\n");
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, Register reg) {
+        builder.repeat(" ", indent)
+                .append(opcode)
                 .append(" ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+                .append(mapRegistersToAasm(reg))
+                .append("\n");
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, int val, String reg) {
+        builder.repeat(" ", indent)
+                .append(opcode)
+                .append(" $")
+                .append(val)
+                .append(", ")
+                .append(reg)
+                .append("\n");
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, int val, Register reg) {
+        builder.repeat(" ", indent)
+                .append(opcode)
+                .append(" $")
+                .append(val)
+                .append(", ")
+                .append(mapRegistersToAasm(reg))
+                .append("\n");
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, String regA, String regB) {
+        builder.repeat(" ", indent)
+                .append(opcode)
+                .append(" ")
+                .append(regA)
+                .append(", ")
+                .append(regB)
+                .append("\n");
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, Register regA, String regB) {
+        builder.repeat(" ", indent)
+                .append(opcode)
+                .append(" ")
+                .append(mapRegistersToAasm(regA))
+                .append(", ")
+                .append(regB)
+                .append("\n");
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, String regA, Register regB) {
+        builder.repeat(" ", indent)
+                .append(opcode)
+                .append(" ")
+                .append(regA)
+                .append(", ")
+                .append(mapRegistersToAasm(regB))
+                .append("\n");
+    }
+
+    private static void appendIndentedLine(StringBuilder builder, String opcode, Register regA, Register regB) {
+        builder.repeat(" ", indent)
+                .append(opcode)
+                .append(" ")
+                .append(mapRegistersToAasm(regA))
+                .append(", ")
+                .append(mapRegistersToAasm(regB));
     }
 }
