@@ -13,6 +13,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.semantic.SemanticAnalysis;
 import edu.kit.kastel.vads.compiler.semantic.SemanticException;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,12 +50,27 @@ public class Main {
             }
         }
 
-        // TODO: generate assembly and invoke gcc instead of generating abstract assembly
+        // Generate assembly code
         String s = new CodeGenerator().generateCode(graphs);
-
         Path generated_assembly = Path.of(args[1] + ".s");
         Files.writeString(generated_assembly, s);
-        Process cmdProc = Runtime.getRuntime().exec("gcc " + generated_assembly + " -o " + output);
+
+        // Compile and execute (for testing)
+        ProcessBuilder cmd = new ProcessBuilder("gcc", generated_assembly.toString(), "-o", output.toString());
+        cmd.inheritIO(); // optional: redirects output to console
+        try {
+            Process process = cmd.start();
+            process.waitFor();
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+        cmd = new ProcessBuilder("./" + output);
+        try {
+            System.err.println("Program finished with exit code: " + cmd.start().waitFor());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     private static ProgramTree lexAndParse(Path input) throws IOException {

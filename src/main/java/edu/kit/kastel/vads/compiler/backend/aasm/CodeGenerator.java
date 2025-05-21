@@ -98,11 +98,11 @@ public class CodeGenerator {
         appendIndentedLine(builder, "mov", 0, "%rdx");
         Register reg;
         // check if first operand is already in %rax
-        if (!"%rax".equals((reg = registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT))).toString())) {
+        if (!"%0".equals((reg = registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT))).toString())) {
             appendIndentedLine(builder, "mov", reg, "%rax");
         }
         // check if second operand is already in %rcx
-        if (!"%rcx".equals((reg = registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT))).toString())) {
+        if (!"%2".equals((reg = registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT))).toString())) {
             appendIndentedLine(builder, "mov", reg, "%rcx");
         }
         // perform operation
@@ -194,6 +194,7 @@ public class CodeGenerator {
                 .append(" ")
                 .append(mapRegistersToAasm(regA))
                 .append(", ")
-                .append(mapRegistersToAasm(regB));
+                .append(mapRegistersToAasm(regB))
+                .append("\n");
     }
 }
