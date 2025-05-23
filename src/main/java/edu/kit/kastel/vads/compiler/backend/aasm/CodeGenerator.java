@@ -7,6 +7,7 @@ import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.node.*;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 public class CodeGenerator {
 
@@ -51,54 +52,30 @@ public class CodeGenerator {
                     appendIndentedLine(builder, "imul", left, right);
                 }
                 case DivNode div -> {
-                    Register left = div.predecessor(BinaryOperationNode.LEFT).resultRegister();
-                    Register right = div.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     // write return register into child node (IDK why this is so complicated :/)
-                    for (Node successor : div.graph().successors(div)) {
-                        if (successor instanceof ProjNode node) {
-                            if (node.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT) {
-                                node.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
-                            }
-                        }
-                    }
-
-                    // %rax = %rax </> %rcx <- nothing to do after op
-                    appendIndentedLine(builder, "mov", 0, "%rdx");
-                    appendIndentedLine(builder, "mov", left, "%rax");
-                    appendIndentedLine(builder, "div", right);
+                    div.graph().successors(div).forEach(suc -> handleProjNode(suc, SPECIAL_REGISTERS.RAX));
+                    divModOperation(div, builder);
                 }
                 case ModNode mod -> {
-                    Register left = mod.predecessor(BinaryOperationNode.LEFT).resultRegister();
-                    Register// perform operation
-                            right = mod.predecessor(BinaryOperationNode.RIGHT).resultRegister();
-                    // write return register into child node (IDK why this is so complicated :/)
-                    for (Node successor : mod.graph().successors(mod)) {
-                        if (successor instanceof ProjNode node) {
-                            if (node.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT) {
-                                node.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RDX.ordinal()));
-                            }
-                        }
-                    }
-
-                    // %rdx = %rax <%> %rcx
-                    appendIndentedLine(builder, "mov", 0, "%rdx");
-                    appendIndentedLine(builder, "mov", left, "%rax");
-                    appendIndentedLine(builder, "div", right);
+                    mod.graph().successors(mod).forEach(su -> handleProjNode(su, SPECIAL_REGISTERS.RDX));
+                    divModOperation(mod, builder);
                     // put correct result in %rax
                     appendIndentedLine(builder, "mov", "%rdx", "%rax");
                 }
                 case ReturnNode ret -> {
+                    Register raxRegister = new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal());
                     for (Node predecessor : ret.predecessors()) {
-                        if (predecessor instanceof ProjNode) {
-                            continue;
+                        if (predecessor instanceof ProjNode projNode) {
+                            if (projNode.projectionInfo() == ProjNode.SimpleProjectionInfo.SIDE_EFFECT) {
+                                continue;
+                            }
                         }
-                        if (predecessor instanceof BinaryOperationNode || predecessor instanceof ConstIntNode) {
-                            ret.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
-                            appendIndentedLine(builder, "mov", predecessor.resultRegister(), ret.resultRegister());
+                        if (isValidOpNode.test(predecessor)) {
+                            appendIndentedLine(builder, "mov", predecessor.resultRegister(), raxRegister);
                             appendIndentedLine(builder, "ret", "");
-                            return;
+                        } else {
+                            throw new IllegalStateException("ReturnNode has an unexpected predecessor: " + predecessor.getClass().getName());
                         }
-                        throw new IllegalStateException("ReturnNode has an unexpected predecessor: " + predecessor.getClass().getName());
                     }
                 }
                 case Phi _ -> throw new UnsupportedOperationException("phi");
@@ -106,6 +83,29 @@ public class CodeGenerator {
                     // do nothing
                     return;
                 }
+            }
+        }
+    }
+
+    Predicate<Node> isValidOpNode = predecessor ->
+            (predecessor instanceof ProjNode node && node.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT)
+                    || predecessor instanceof BinaryOperationNode
+                    || predecessor instanceof ConstIntNode;
+
+    private static void divModOperation(Node opNode, StringBuilder builder) {
+        // %rax = %rax </> %rcx <- nothing to do after op
+        // %rdx = %rax <%> %rcx <- move necessary (handle in caller)
+        Register left = opNode.predecessor(BinaryOperationNode.LEFT).resultRegister();
+        Register right = opNode.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+        appendIndentedLine(builder, "mov", 0, "%rdx");
+        appendIndentedLine(builder, "mov", left, "%rax");
+        appendIndentedLine(builder, "div", right);
+    }
+
+    private static void handleProjNode(Node node, SPECIAL_REGISTERS reg) {
+        if (node instanceof ProjNode projNode) {
+            if (projNode.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT) {
+                projNode.setResultRegister(new VirtualRegister(reg.ordinal()));
             }
         }
     }
