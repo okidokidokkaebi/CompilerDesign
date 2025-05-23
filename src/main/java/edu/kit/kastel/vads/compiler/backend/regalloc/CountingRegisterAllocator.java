@@ -7,7 +7,7 @@ import java.util.Map;
 
 public class CountingRegisterAllocator implements RegisterAllocator {
 
-    private int count = 0;
+    private int count = 6;
 
     @Override
     public Map<Node, Register> allocateRegisters(IrGraph graph) {
