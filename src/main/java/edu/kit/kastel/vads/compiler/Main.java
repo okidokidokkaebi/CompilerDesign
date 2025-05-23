@@ -57,24 +57,27 @@ public class Main {
         Path generated_assembly = Path.of(args[1] + ".s");
         Files.writeString(generated_assembly, s);
 
-        // Compile and execute (for testing)
-        ProcessBuilder cmd = new ProcessBuilder("gcc", generated_assembly.toString(), "-o", output.toString());
-        cmd.inheritIO(); // optional: redirects output to console
-        try {
-            cmd.start().waitFor();
-        } catch (InterruptedException e) {
-            System.out.println("hui hier sollte ich nicht sein");
-//            e.printStackTrace();
-        }
+        // Compile and execute (exec for testing locally only!)
+        exec(false, "gcc", generated_assembly.toString(), "-o", output.toString());
+        //exec(true, "./" + output);
+    }
 
-        cmd = new ProcessBuilder("./" + output);
+    private static void exec(boolean local, String... args) throws IOException {
+        ProcessBuilder cmd = new ProcessBuilder(args);
+        cmd.inheritIO();
         int exitCode = 0;
         try {
             exitCode = cmd.start().waitFor();
-            System.out.println("Program finished with exit code: " + exitCode);
+            if (local) {
+                System.err.println("Program finished with exit code: " + exitCode);
+            }
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
-            System.out.println("Entered catch block, cmd exited with " + exitCode);
-            e.printStackTrace();
+            System.out.println("Landed in catch block, cmd exited with exit code: " + exitCode);
+            if (local) {
+                e.printStackTrace();
+            }
         }
     }
 
