@@ -61,18 +61,18 @@ public class Main {
         ProcessBuilder cmd = new ProcessBuilder("gcc", generated_assembly.toString(), "-o", output.toString());
         cmd.inheritIO(); // optional: redirects output to console
         try {
-            Process process = cmd.start();
-            process.waitFor();
-        } catch (IOException | InterruptedException e) {
+            cmd.start().waitFor();
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        /*
         cmd = new ProcessBuilder("./" + output);
         try {
             System.err.println("Program finished with exit code: " + cmd.start().waitFor());
         } catch (InterruptedException e) {
             e.printStackTrace();
             System.exit(1);
-        }
+        }*/
     }
 
     private static ProgramTree lexAndParse(Path input) throws IOException {
