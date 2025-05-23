@@ -1,13 +1,11 @@
 package edu.kit.kastel.vads.compiler.backend.aasm;
 
 import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
+import edu.kit.kastel.vads.compiler.backend.regalloc.RegisterAllocator;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.node.*;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static edu.kit.kastel.vads.compiler.ir.util.NodeSupport.predecessorSkipProj;
 
@@ -20,7 +18,71 @@ public class CodeGenerator {
             "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
     };
 
+    private void dfs(Set<Node> visited, Stack<Node> stack, RegisterAllocator allocator) {
+        while (!stack.isEmpty()) {
+            Node active = stack.pop();
+            for (Node predecessor : active.predecessors()) {
+                if (visited.add(predecessor)) {
+                    stack.add(predecessor);
+                    dfs(visited, stack, allocator);
+                }
+            }
+
+            switch (active) {
+                case ConstIntNode c -> {
+                    c.setResultRegister(allocator.getNew());
+                    //appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
+                }
+                case AddNode add -> {
+                    Register left = add.predecessor(BinaryOperationNode.LEFT).resultRegister();
+                    Register right = add.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+                    add.setResultRegister(right);
+                    //appendIndentedLine(builder, "add", left, right);
+                }
+                case SubNode sub -> {
+                    Register left = sub.predecessor(BinaryOperationNode.LEFT).resultRegister();
+                    Register right = sub.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+                    sub.setResultRegister(right);
+                    //appendIndentedLine(builder, "sub", left, right);
+                }
+                case MulNode mul -> {
+                    Register left = mul.predecessor(BinaryOperationNode.LEFT).resultRegister();
+                    Register right = mul.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+                    mul.setResultRegister(right);
+                    //appendIndentedLine(builder, "imul", left, right);
+                }
+                case DivNode div -> {
+                    // TODO
+                }
+                case ModNode mod -> {
+                    // TODO
+                }
+                case ReturnNode ret -> {
+                }
+                case Phi _ -> throw new UnsupportedOperationException("phi");
+                case Block _, ProjNode _, StartNode _ -> {
+                    // do nothing
+                    return;
+                }
+            }
+
+        }
+    }
+
     public String generateCode(List<IrGraph> program) {
+        for (IrGraph graph : program) {
+            // Second to last Node is *always* return statement
+            ReturnNode returnNode = (ReturnNode) graph.endBlock().predecessor(0);
+            Set<Node> visited = new HashSet<>();
+            Stack<Node> stack = new Stack<>();
+            visited.add(returnNode);
+            stack.add(returnNode);
+            dfs(visited, stack, new CountingRegisterAllocator());
+
+
+        }
+
+
         StringBuilder builder = new StringBuilder();
         builder.append("""
                 .global main
@@ -85,6 +147,7 @@ public class CodeGenerator {
         // TODO check best result register
         appendIndentedLine(builder, opcode, registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)),
                 registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+        // TODO sub andersrum!
     }
 
     private static void binaryDivMod(

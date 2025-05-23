@@ -1,5 +1,6 @@
 package edu.kit.kastel.vads.compiler.ir.node;
 
+import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
 import edu.kit.kastel.vads.compiler.ir.util.DebugInfo;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.util.DebugInfoHelper;
@@ -13,6 +14,7 @@ public sealed abstract class Node permits BinaryOperationNode, Block, ConstIntNo
     private final Block block;
     private final List<Node> predecessors = new ArrayList<>();
     private final DebugInfo debugInfo;
+    private Register result;
 
     protected Node(Block block, Node... predecessors) {
         this.graph = block.graph();
@@ -56,6 +58,14 @@ public sealed abstract class Node permits BinaryOperationNode, Block, ConstIntNo
 
     public final Node predecessor(int idx) {
         return this.predecessors.get(idx);
+    }
+
+    public final void setResultRegister(Register result) {
+        this.result = result;
+    }
+
+    public final Register resultRegister() {
+        return this.result;
     }
 
     @Override
