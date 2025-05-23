@@ -3,6 +3,7 @@ package edu.kit.kastel.vads.compiler.backend.aasm;
 import edu.kit.kastel.vads.compiler.backend.regalloc.CountingRegisterAllocator;
 import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
 import edu.kit.kastel.vads.compiler.backend.regalloc.RegisterAllocator;
+import edu.kit.kastel.vads.compiler.backend.regalloc.SPECIAL_REGISTERS;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.node.*;
 
@@ -19,52 +20,67 @@ public class CodeGenerator {
             "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
     };
 
-    private void dfs(Set<Node> visited, Stack<Node> stack, CountingRegisterAllocator allocator) {
+    private void dfs(Set<Node> visited, Stack<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder) {
         while (!stack.isEmpty()) {
             Node active = stack.pop();
             for (Node predecessor : active.predecessors()) {
                 if (visited.add(predecessor)) {
                     stack.add(predecessor);
-                    dfs(visited, stack, allocator);
+                    dfs(visited, stack, allocator, builder);
                 }
             }
 
             switch (active) {
                 case ConstIntNode c -> {
                     c.setResultRegister(new VirtualRegister(allocator.getNew()));
-                    //appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
+                    appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {
                     Register left = add.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = add.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     add.setResultRegister(right);
-                    //appendIndentedLine(builder, "add", left, right);
+                    appendIndentedLine(builder, "add", left, right);
                 }
                 case SubNode sub -> {
                     Register left = sub.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = sub.predecessor(BinaryOperationNode.RIGHT).resultRegister();
-                    sub.setResultRegister(right);
-                    //appendIndentedLine(builder, "sub", left, right);
+                    sub.setResultRegister(left);
+                    appendIndentedLine(builder, "sub", right, left);
                 }
                 case MulNode mul -> {
                     Register left = mul.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = mul.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     mul.setResultRegister(right);
-                    //appendIndentedLine(builder, "imul", left, right);
+                    appendIndentedLine(builder, "imul", left, right);
                 }
                 case DivNode div -> {
-                    // TODO
                     Register left = div.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = div.predecessor(BinaryOperationNode.RIGHT).resultRegister();
-                    div.setResultRegister(Register.SPECIAL_REGISTERS.RAX);
+                    div.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
+                    // TODO
                 }
                 case ModNode mod -> {
-                    // TODO
                     Register left = mod.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = mod.predecessor(BinaryOperationNode.RIGHT).resultRegister();
-                    mod.setResultRegister(Register.SPECIAL_REGISTERS.RDX);
+                    mod.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RCX.ordinal()));
+                    // TODO
                 }
                 case ReturnNode ret -> {
+                    Register left = ret.predecessor(BinaryOperationNode.LEFT).resultRegister();
+                    Register right = ret.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+                    ret.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
+
+                    if (left == null) {
+                        // right is return value
+                        appendIndentedLine(builder, "mov", right, ret.resultRegister());
+                        appendIndentedLine(builder, "ret", "");
+                    } else if (right == null) {
+                        // left is return value
+                        appendIndentedLine(builder, "mov", left, ret.resultRegister());
+                        appendIndentedLine(builder, "ret", "");
+                    } else {
+                        throw new AssertionError("ReturnNode has two null registers as predecessors. Maybe check for more predecessors?");
+                    }
                 }
                 case Phi _ -> throw new UnsupportedOperationException("phi");
                 case Block _, ProjNode _, StartNode _ -> {
@@ -76,19 +92,6 @@ public class CodeGenerator {
     }
 
     public String generateCode(List<IrGraph> program) {
-        for (IrGraph graph : program) {
-            // Second to last Node is *always* return statement
-            ReturnNode returnNode = (ReturnNode) graph.endBlock().predecessor(0);
-            Set<Node> visited = new HashSet<>();
-            Stack<Node> stack = new Stack<>();
-            visited.add(returnNode);
-            stack.add(returnNode);
-            dfs(visited, stack, new CountingRegisterAllocator());
-
-
-        }
-
-
         StringBuilder builder = new StringBuilder();
         builder.append("""
                 .global main
@@ -102,6 +105,22 @@ public class CodeGenerator {
                 syscall
                 
                 """);
+
+
+        for (IrGraph graph : program) {
+            builder.append("_")
+                .append(graph.name())
+                .append(":\n");
+
+            // Second to last Node is *always* return statement
+            ReturnNode returnNode = (ReturnNode) graph.endBlock().predecessor(0);
+            Set<Node> visited = new HashSet<>();
+            Stack<Node> stack = new Stack<>();
+            visited.add(returnNode);
+            stack.add(returnNode);
+            dfs(visited, stack, new CountingRegisterAllocator(), builder);
+        }
+/*
         for (IrGraph graph : program) {
             AasmRegisterAllocator allocator = new AasmRegisterAllocator();
             Map<Node, Register> registers = allocator.allocateRegisters(graph);
@@ -110,7 +129,7 @@ public class CodeGenerator {
                     .append(graph.name())
                     .append(":\n");
             generateForGraph(graph, builder, registers);
-        }
+        }*/
         return builder.toString();
     }
 
