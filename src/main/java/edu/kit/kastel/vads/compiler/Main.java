@@ -44,7 +44,9 @@ public class Main {
 
         if ("vcg".equals(System.getenv("DUMP_GRAPHS")) || "vcg".equals(System.getProperty("dumpGraphs"))) {
             Path tmp = output.toAbsolutePath().resolveSibling("graphs");
-            Files.createDirectory(tmp);
+            if (!Files.exists(tmp)) {
+                Files.createDirectory(tmp);
+            }
             for (IrGraph graph : graphs) {
                 dumpGraph(graph, tmp, "before-codegen");
             }
