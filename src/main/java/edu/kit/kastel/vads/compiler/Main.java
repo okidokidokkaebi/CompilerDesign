@@ -65,12 +65,13 @@ public class Main {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+
         cmd = new ProcessBuilder("./" + output);
         try {
-            System.out.println("Program finished with exit code: " + cmd.start().waitFor());
+            System.err.println("Program finished with exit code: " + cmd.start().waitFor());
         } catch (InterruptedException e) {
+            System.out.println("Entered catch block");
             e.printStackTrace();
-            System.exit(1);
         }
     }
 
