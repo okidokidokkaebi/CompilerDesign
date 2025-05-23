@@ -2,14 +2,11 @@ package edu.kit.kastel.vads.compiler.backend.aasm;
 
 import edu.kit.kastel.vads.compiler.backend.regalloc.CountingRegisterAllocator;
 import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
-import edu.kit.kastel.vads.compiler.backend.regalloc.RegisterAllocator;
 import edu.kit.kastel.vads.compiler.backend.regalloc.SPECIAL_REGISTERS;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.node.*;
 
 import java.util.*;
-
-import static edu.kit.kastel.vads.compiler.ir.util.NodeSupport.predecessorSkipProj;
 
 public class CodeGenerator {
 
@@ -56,30 +53,52 @@ public class CodeGenerator {
                 case DivNode div -> {
                     Register left = div.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = div.predecessor(BinaryOperationNode.RIGHT).resultRegister();
-                    div.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
-                    // TODO
+                    // write return register into child node (IDK why this is so complicated :/)
+                    for (Node successor : div.graph().successors(div)) {
+                        if (successor instanceof ProjNode node) {
+                            if (node.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT) {
+                                node.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
+                            }
+                        }
+                    }
+
+                    // %rax = %rax </> %rcx <- nothing to do after op
+                    appendIndentedLine(builder, "mov", 0, "%rdx");
+                    appendIndentedLine(builder, "mov", left, "%rax");
+                    appendIndentedLine(builder, "div", right);
                 }
                 case ModNode mod -> {
                     Register left = mod.predecessor(BinaryOperationNode.LEFT).resultRegister();
-                    Register right = mod.predecessor(BinaryOperationNode.RIGHT).resultRegister();
-                    mod.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RCX.ordinal()));
-                    // TODO
+                    Register// perform operation
+                            right = mod.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+                    // write return register into child node (IDK why this is so complicated :/)
+                    for (Node successor : mod.graph().successors(mod)) {
+                        if (successor instanceof ProjNode node) {
+                            if (node.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT) {
+                                node.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RDX.ordinal()));
+                            }
+                        }
+                    }
+
+                    // %rdx = %rax <%> %rcx
+                    appendIndentedLine(builder, "mov", 0, "%rdx");
+                    appendIndentedLine(builder, "mov", left, "%rax");
+                    appendIndentedLine(builder, "div", right);
+                    // put correct result in %rax
+                    appendIndentedLine(builder, "mov", "%rdx", "%rax");
                 }
                 case ReturnNode ret -> {
-                    Register left = ret.predecessor(BinaryOperationNode.LEFT).resultRegister();
-                    Register right = ret.predecessor(BinaryOperationNode.RIGHT).resultRegister();
-                    ret.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
-
-                    if (left == null) {
-                        // right is return value
-                        appendIndentedLine(builder, "mov", right, ret.resultRegister());
-                        appendIndentedLine(builder, "ret", "");
-                    } else if (right == null) {
-                        // left is return value
-                        appendIndentedLine(builder, "mov", left, ret.resultRegister());
-                        appendIndentedLine(builder, "ret", "");
-                    } else {
-                        throw new AssertionError("ReturnNode has two null registers as predecessors. Maybe check for more predecessors?");
+                    for (Node predecessor : ret.predecessors()) {
+                        if (predecessor instanceof ProjNode) {
+                            continue;
+                        }
+                        if (predecessor instanceof BinaryOperationNode || predecessor instanceof ConstIntNode) {
+                            ret.setResultRegister(new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal()));
+                            appendIndentedLine(builder, "mov", predecessor.resultRegister(), ret.resultRegister());
+                            appendIndentedLine(builder, "ret", "");
+                            return;
+                        }
+                        throw new IllegalStateException("ReturnNode has an unexpected predecessor: " + predecessor.getClass().getName());
                     }
                 }
                 case Phi _ -> throw new UnsupportedOperationException("phi");
@@ -109,8 +128,8 @@ public class CodeGenerator {
 
         for (IrGraph graph : program) {
             builder.append("_")
-                .append(graph.name())
-                .append(":\n");
+                    .append(graph.name())
+                    .append(":\n");
 
             // Second to last Node is *always* return statement
             ReturnNode returnNode = (ReturnNode) graph.endBlock().predecessor(0);
@@ -133,6 +152,7 @@ public class CodeGenerator {
         return builder.toString();
     }
 
+    /*
     private void generateForGraph(IrGraph graph, StringBuilder builder, Map<Node, Register> registers) {
         Set<Node> visited = new HashSet<>();
         scan(graph.endBlock(), visited, builder, registers);
@@ -200,6 +220,7 @@ public class CodeGenerator {
             appendIndentedLine(builder, "mov", "%rdx", "%rax");
         }
     }
+    */
 
     private static String mapRegistersToAasm(Register reg) {
         int regNo = reg.getRegisterNo();
