@@ -1,5 +1,6 @@
 package edu.kit.kastel.vads.compiler.backend.aasm;
 
+import edu.kit.kastel.vads.compiler.backend.regalloc.CountingRegisterAllocator;
 import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
 import edu.kit.kastel.vads.compiler.backend.regalloc.RegisterAllocator;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
@@ -18,7 +19,7 @@ public class CodeGenerator {
             "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
     };
 
-    private void dfs(Set<Node> visited, Stack<Node> stack, RegisterAllocator allocator) {
+    private void dfs(Set<Node> visited, Stack<Node> stack, CountingRegisterAllocator allocator) {
         while (!stack.isEmpty()) {
             Node active = stack.pop();
             for (Node predecessor : active.predecessors()) {
@@ -30,7 +31,7 @@ public class CodeGenerator {
 
             switch (active) {
                 case ConstIntNode c -> {
-                    c.setResultRegister(allocator.getNew());
+                    c.setResultRegister(new VirtualRegister(allocator.getNew()));
                     //appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {
@@ -53,9 +54,15 @@ public class CodeGenerator {
                 }
                 case DivNode div -> {
                     // TODO
+                    Register left = div.predecessor(BinaryOperationNode.LEFT).resultRegister();
+                    Register right = div.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+                    div.setResultRegister(Register.SPECIAL_REGISTERS.RAX);
                 }
                 case ModNode mod -> {
                     // TODO
+                    Register left = mod.predecessor(BinaryOperationNode.LEFT).resultRegister();
+                    Register right = mod.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+                    mod.setResultRegister(Register.SPECIAL_REGISTERS.RDX);
                 }
                 case ReturnNode ret -> {
                 }
@@ -65,7 +72,6 @@ public class CodeGenerator {
                     return;
                 }
             }
-
         }
     }
 
