@@ -1,8 +1,8 @@
 package edu.kit.kastel.vads.compiler.backend.aasm;
 
-import edu.kit.kastel.vads.compiler.backend.regalloc.CountingRegisterAllocator;
-import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
-import edu.kit.kastel.vads.compiler.backend.regalloc.SPECIAL_REGISTERS;
+import edu.kit.kastel.vads.compiler.backend.regalloc.*;
+import edu.kit.kastel.vads.compiler.backend.statements.MoveStatement;
+import edu.kit.kastel.vads.compiler.backend.statements.Statement;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.node.*;
 
@@ -18,48 +18,53 @@ public class CodeGenerator {
             "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
     };
 
-    private void dfs(Set<Node> visited, Stack<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder) {
+    private void dfs(Set<Node> visited, Stack<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder, ArrayList<Statement> statements) {
         while (!stack.isEmpty()) {
             Node active = stack.pop();
             for (Node predecessor : active.predecessors()) {
                 if (visited.add(predecessor)) {
                     stack.add(predecessor);
-                    dfs(visited, stack, allocator, builder);
+                    dfs(visited, stack, allocator, builder, statements);
                 }
             }
 
             switch (active) {
                 case ConstIntNode c -> {
                     c.setResultRegister(new VirtualRegister(allocator.getNew()));
+                    statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
                     appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {
                     Register left = add.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = add.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     add.setResultRegister(right);
+                    statements.add(new MoveStatement("add", Optional.of(left), Optional.of(right)));
                     appendIndentedLine(builder, "add", left, right);
                 }
                 case SubNode sub -> {
                     Register left = sub.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = sub.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     sub.setResultRegister(left);
+                    statements.add(new MoveStatement("sub", Optional.of(right), Optional.of(left)));
                     appendIndentedLine(builder, "sub", right, left);
                 }
                 case MulNode mul -> {
                     Register left = mul.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = mul.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     mul.setResultRegister(right);
+                    statements.add(new MoveStatement("imul", Optional.of(left), Optional.of(right)));
                     appendIndentedLine(builder, "imul", left, right);
                 }
                 case DivNode div -> {
                     // write return register into child node (IDK why this is so complicated :/)
                     div.graph().successors(div).forEach(suc -> handleProjNode(suc, SPECIAL_REGISTERS.RAX));
-                    divModOperation(div, builder);
+                    divModOperation(div, builder, statements);
                 }
                 case ModNode mod -> {
                     mod.graph().successors(mod).forEach(su -> handleProjNode(su, SPECIAL_REGISTERS.RDX));
-                    divModOperation(mod, builder);
+                    divModOperation(mod, builder, statements);
                     // put correct result in %rax
+                    statements.add(new MoveStatement("mov", new SpecialRegister(SPECIAL_REGISTERS.RDX), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
                     appendIndentedLine(builder, "mov", "%rdx", "%rax");
                 }
                 case ReturnNode ret -> {
@@ -71,6 +76,9 @@ public class CodeGenerator {
                             }
                         }
                         if (isValidOpNode.test(predecessor)) {
+                            statements.add(new MoveStatement("mov", Optional.of(predecessor.resultRegister()), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
+                            statements.add(new MoveStatement("ret", Optional.empty(), Optional.empty()));
+
                             appendIndentedLine(builder, "mov", predecessor.resultRegister(), raxRegister);
                             appendIndentedLine(builder, "ret", "");
                         } else {
@@ -92,11 +100,16 @@ public class CodeGenerator {
                     || predecessor instanceof BinaryOperationNode
                     || predecessor instanceof ConstIntNode;
 
-    private static void divModOperation(Node opNode, StringBuilder builder) {
+    private static void divModOperation(Node opNode, StringBuilder builder, ArrayList<Statement> statements) {
         // %rax = %rax </> %rcx <- nothing to do after op
         // %rdx = %rax <%> %rcx <- move necessary (handle in caller)
         Register left = opNode.predecessor(BinaryOperationNode.LEFT).resultRegister();
         Register right = opNode.predecessor(BinaryOperationNode.RIGHT).resultRegister();
+
+        statements.add(new MoveStatement("mov", Optional.of(new ConstValue(0)), new SpecialRegister(SPECIAL_REGISTERS.RDX)));
+        statements.add(new MoveStatement("mov", Optional.of(left), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
+        statements.add(new MoveStatement("div", Optional.empty(), Optional.of(right)));
+
         appendIndentedLine(builder, "mov", 0, "%rdx");
         appendIndentedLine(builder, "mov", left, "%rax");
         appendIndentedLine(builder, "div", right);
@@ -137,7 +150,14 @@ public class CodeGenerator {
             Stack<Node> stack = new Stack<>();
             visited.add(returnNode);
             stack.add(returnNode);
-            dfs(visited, stack, new CountingRegisterAllocator(), builder);
+
+            ArrayList<Statement> statements = new ArrayList<>();
+
+            dfs(visited, stack, new CountingRegisterAllocator(), builder, statements);
+
+            for (Statement statement : statements) {
+                System.out.println(statement);
+            }
         }
 /*
         for (IrGraph graph : program) {
@@ -222,7 +242,7 @@ public class CodeGenerator {
     }
     */
 
-    private static String mapRegistersToAasm(Register reg) {
+    public static String mapRegistersToAasm(Register reg) {
         int regNo = reg.getRegisterNo();
         if (regNo < 0 || regNo >= registers_64.length) {
             // TODO variable needs to be put on stack
