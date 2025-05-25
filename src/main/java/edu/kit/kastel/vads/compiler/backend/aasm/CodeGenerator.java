@@ -18,11 +18,11 @@ public class CodeGenerator {
             "%r8",  "%r9",  "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
     };
 
-    private void dfs(Set<Node> visited, Stack<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder, ArrayList<Statement> statements) {
+    private void dfs(Set<Node> visited, ArrayList<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder, ArrayList<Statement> statements) {
         while (!stack.isEmpty()) {
-            Node active = stack.pop();
+            Node active = stack.removeLast();
             for (Node predecessor : active.predecessors()) {
-                if (visited.add(predecessor)) {
+                if (visited.add(predecessor) || predecessor instanceof ConstIntNode) {
                     stack.add(predecessor);
                     dfs(visited, stack, allocator, builder, statements);
                 }
@@ -153,7 +153,7 @@ public class CodeGenerator {
             // Second to last Node is *always* return statement
             ReturnNode returnNode = (ReturnNode) graph.endBlock().predecessor(0);
             Set<Node> visited = new HashSet<>();
-            Stack<Node> stack = new Stack<>();
+            ArrayList<Node> stack = new ArrayList<>();
             visited.add(returnNode);
             stack.add(returnNode);
 
@@ -330,6 +330,10 @@ public class CodeGenerator {
         System.out.println("Allocated registers:");
         for (VirtualRegister allocs: allocations.keySet()) {
             System.out.println("  " + allocs + ", " + mapToString(allocations.get(allocs)));
+        }
+
+        for (Statement statement: statements) {
+            System.out.println(statement);
         }
 
         for (Statement statement: statements) {
