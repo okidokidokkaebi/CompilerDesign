@@ -30,6 +30,12 @@ public class CodeGenerator {
 
             switch (active) {
                 case ConstIntNode c -> {
+
+                    // TODO: Remove and solve better
+                    c.graph().successors(c).forEach(suc -> {
+                        suc.addPredecessor(new ConstIntNode(c.graph().startBlock(), c.value()));
+                    });
+
                     c.setResultRegister(new VirtualRegister(allocator.getNew()));
                     statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
                     // appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
