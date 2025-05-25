@@ -11,10 +11,10 @@ import java.util.function.Predicate;
 
 public class CodeGenerator {
 
-    public final static int indent = 2;
+    public final static int INDENT = 2;
 
     public final static String[] registers_64 = new String[]{
-            "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9",
+            "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%rsp", "%rbp", "%r8", "%r9",
             "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
     };
 
@@ -32,28 +32,28 @@ public class CodeGenerator {
                 case ConstIntNode c -> {
                     c.setResultRegister(new VirtualRegister(allocator.getNew()));
                     statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
-                    appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
+                    // appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {
                     Register left = add.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = add.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     add.setResultRegister(right);
                     statements.add(new MoveStatement("add", Optional.of(left), Optional.of(right)));
-                    appendIndentedLine(builder, "add", left, right);
+                    // appendIndentedLine(builder, "add", left, right);
                 }
                 case SubNode sub -> {
                     Register left = sub.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = sub.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     sub.setResultRegister(left);
                     statements.add(new MoveStatement("sub", Optional.of(right), Optional.of(left)));
-                    appendIndentedLine(builder, "sub", right, left);
+                    // appendIndentedLine(builder, "sub", right, left);
                 }
                 case MulNode mul -> {
                     Register left = mul.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = mul.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     mul.setResultRegister(right);
                     statements.add(new MoveStatement("imul", Optional.of(left), Optional.of(right)));
-                    appendIndentedLine(builder, "imul", left, right);
+                    // appendIndentedLine(builder, "imul", left, right);
                 }
                 case DivNode div -> {
                     // write return register into child node (IDK why this is so complicated :/)
@@ -65,7 +65,7 @@ public class CodeGenerator {
                     divModOperation(mod, builder, statements);
                     // put correct result in %rax
                     statements.add(new MoveStatement("mov", new SpecialRegister(SPECIAL_REGISTERS.RDX), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
-                    appendIndentedLine(builder, "mov", "%rdx", "%rax");
+                    // appendIndentedLine(builder, "mov", "%rdx", "%rax");
                 }
                 case ReturnNode ret -> {
                     Register raxRegister = new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal());
@@ -79,8 +79,8 @@ public class CodeGenerator {
                             statements.add(new MoveStatement("mov", Optional.of(predecessor.resultRegister()), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
                             statements.add(new MoveStatement("ret", Optional.empty(), Optional.empty()));
 
-                            appendIndentedLine(builder, "mov", predecessor.resultRegister(), raxRegister);
-                            appendIndentedLine(builder, "ret", "");
+                            // appendIndentedLine(builder, "mov", predecessor.resultRegister(), raxRegister);
+                            // appendIndentedLine(builder, "ret", "");
                         } else {
                             throw new IllegalStateException("ReturnNode has an unexpected predecessor: " + predecessor.getClass().getName());
                         }
@@ -110,9 +110,9 @@ public class CodeGenerator {
         statements.add(new MoveStatement("mov", Optional.of(left), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
         statements.add(new MoveStatement("div", Optional.empty(), Optional.of(right)));
 
-        appendIndentedLine(builder, "mov", 0, "%rdx");
-        appendIndentedLine(builder, "mov", left, "%rax");
-        appendIndentedLine(builder, "div", right);
+        // appendIndentedLine(builder, "mov", 0, "%rdx");
+        // appendIndentedLine(builder, "mov", left, "%rax");
+        // appendIndentedLine(builder, "div", right);
     }
 
     private static void handleProjNode(Node node, SPECIAL_REGISTERS reg) {
@@ -158,6 +158,9 @@ public class CodeGenerator {
             for (Statement statement : statements) {
                 System.out.println(statement);
             }
+
+            allocateRegisters(statements, builder);
+
         }
 /*
         for (IrGraph graph : program) {
@@ -170,6 +173,145 @@ public class CodeGenerator {
             generateForGraph(graph, builder, registers);
         }*/
         return builder.toString();
+    }
+
+    class LiveInterval {
+        private final int start;
+        private int end;
+
+        private final VirtualRegister virtual;
+
+        public LiveInterval(int start, int end, VirtualRegister virtual) {
+            this.start = start;
+            this.end = end;
+            this.virtual = virtual;
+        }
+
+        public int getStart() {
+            return start;
+        }
+
+        public int getEnd() {
+            return end;
+        }
+
+        public void setEnd(int end) {
+            this.end = end;
+        }
+
+        public Register getVirtual() {
+            return virtual;
+        }
+    }
+
+    public ArrayList<LiveInterval> createSortedIntervals(List<Statement> statements) {
+        HashMap<VirtualRegister, LiveInterval> intervals = new HashMap<>();
+
+        for (int line = 0; line < statements.size(); line++) {
+            for (VirtualRegister v: statements.get(line).getUsedRegisters()) {
+                if (!intervals.containsKey(v)) {
+                    intervals.put(v, new LiveInterval(line, line, v));
+                } else {
+                    LiveInterval inter = intervals.get(v);
+                    inter.setEnd(line);
+                }
+            }
+        }
+
+        ArrayList<LiveInterval> result = new ArrayList<>(intervals.values().stream().toList());
+        result.sort(Comparator.comparingInt(LiveInterval::getStart));
+
+        return result;
+    }
+
+    public String mapToString(USABLE_REGISTERS register) {
+        switch (register) {
+            case R8 -> {
+                return "%r8";
+            }
+            case R9 -> {
+                return "%r9";
+            }
+            case R10 -> {
+                return "%r10";
+            }
+            case R11 -> {
+                return "%r11";
+            }
+            case R12 -> {
+                return "%r12";
+            }
+            case R13 -> {
+                return "%r13";
+            }
+            case R14 -> {
+                return "%r14";
+            }
+            case R15 -> {
+                return "%r15";
+            }
+            case SPILL -> {
+                return "%spill";
+            }
+            default -> {
+                throw new IllegalStateException();
+            }
+        }
+    }
+
+    private void allocateRegisters(ArrayList<Statement> statements, StringBuilder builder) {
+        ArrayList<LiveInterval> liveIntervals = createSortedIntervals(statements);
+
+        List<LiveInterval> activeIntervals = new ArrayList<>();
+        ArrayList<USABLE_REGISTERS> freeRegister = new ArrayList<>(Arrays.asList(
+            USABLE_REGISTERS.R8,
+            USABLE_REGISTERS.R9,
+            USABLE_REGISTERS.R10,
+            USABLE_REGISTERS.R11,
+            USABLE_REGISTERS.R12,
+            USABLE_REGISTERS.R13,
+            USABLE_REGISTERS.R14,
+            USABLE_REGISTERS.R15)
+        );
+        
+        HashMap<VirtualRegister, USABLE_REGISTERS> allocations = new HashMap<>();
+
+        for (LiveInterval interval: liveIntervals) {
+            activeIntervals = new ArrayList<>(activeIntervals.stream()
+                    .filter(inter -> inter.getEnd() > interval.getStart())
+                    .toList());
+
+            if (activeIntervals.size() < freeRegister.size()) {
+                HashSet<USABLE_REGISTERS> usedRegisters = new HashSet<>();
+                for (LiveInterval active: activeIntervals) {
+                    usedRegisters.add(allocations.get(active.getVirtual()));
+                }
+                System.out.println("Used: " + usedRegisters);
+
+                USABLE_REGISTERS assigned = freeRegister.stream()
+                        .filter(free -> !usedRegisters.contains(free)).findFirst().get();
+
+                allocations.put((VirtualRegister) interval.getVirtual(), assigned);
+                activeIntervals.add(interval);
+            } else {
+                allocations.put((VirtualRegister) interval.getVirtual(), USABLE_REGISTERS.SPILL);
+            }
+        }
+
+        for (VirtualRegister allocs: allocations.keySet()) {
+            System.out.println("allocs: " + allocs + ", " + mapToString(allocations.get(allocs)));
+        }
+
+        for (Statement statement: statements) {
+            for (VirtualRegister reg: statement.getUsedRegisters()) {
+                statement.assign(reg, allocations.get(reg));
+            }
+
+            builder.repeat(" ", INDENT)
+                    .append(statement)
+                    .append("\n");
+        }
+
     }
 
     /*
@@ -246,13 +388,16 @@ public class CodeGenerator {
         int regNo = reg.getRegisterNo();
         if (regNo < 0 || regNo >= registers_64.length) {
             // TODO variable needs to be put on stack
-            throw new IllegalArgumentException("Invalid register number: " + regNo);
+            System.out.println(reg + " is not a valid register number");
+
+            return "%spill";
+            //throw new IllegalArgumentException("Invalid register number: " + regNo);
         }
         return registers_64[reg.getRegisterNo()];
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, String reg) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" ")
                 .append(reg)
@@ -260,7 +405,7 @@ public class CodeGenerator {
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, Register reg) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" ")
                 .append(mapRegistersToAasm(reg))
@@ -268,7 +413,7 @@ public class CodeGenerator {
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, int val, String reg) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" $")
                 .append(val)
@@ -278,7 +423,7 @@ public class CodeGenerator {
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, int val, Register reg) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" $")
                 .append(val)
@@ -288,7 +433,7 @@ public class CodeGenerator {
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, String regA, String regB) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" ")
                 .append(regA)
@@ -298,7 +443,7 @@ public class CodeGenerator {
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, Register regA, String regB) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" ")
                 .append(mapRegistersToAasm(regA))
@@ -308,7 +453,7 @@ public class CodeGenerator {
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, String regA, Register regB) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" ")
                 .append(regA)
@@ -318,7 +463,7 @@ public class CodeGenerator {
     }
 
     private static void appendIndentedLine(StringBuilder builder, String opcode, Register regA, Register regB) {
-        builder.repeat(" ", indent)
+        builder.repeat(" ", INDENT)
                 .append(opcode)
                 .append(" ")
                 .append(mapRegistersToAasm(regA))

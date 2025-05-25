@@ -1,8 +1,7 @@
 package edu.kit.kastel.vads.compiler.backend.statements;
 
-import edu.kit.kastel.vads.compiler.backend.regalloc.ConstValue;
-import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
-import edu.kit.kastel.vads.compiler.backend.regalloc.SpecialRegister;
+import edu.kit.kastel.vads.compiler.backend.aasm.VirtualRegister;
+import edu.kit.kastel.vads.compiler.backend.regalloc.*;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -14,7 +13,7 @@ import static edu.kit.kastel.vads.compiler.backend.aasm.CodeGenerator.mapRegiste
 public class MoveStatement implements Statement {
 
     private final String opcode;
-    private final List<Register> virtual_reg;
+    private final List<VirtualRegister> virtual_reg;
 
     private final Optional<ConstOrRegister> left;
     private final Optional<Register> right;
@@ -33,11 +32,13 @@ public class MoveStatement implements Statement {
 
         if (left.isPresent()) {
             if (left.get() instanceof Register) {
-                virtual_reg.add((Register) left.get());
+                virtual_reg.add((VirtualRegister) left.get());
             }
         }
 
-        right.ifPresent(virtual_reg::add);
+        if (right.isPresent() && right.get() instanceof VirtualRegister) {
+            virtual_reg.add((VirtualRegister) right.get());
+        }
     }
 
     public MoveStatement(String opcode, Optional<ConstOrRegister> left, SpecialRegister right) {
@@ -49,6 +50,11 @@ public class MoveStatement implements Statement {
 
         this.assignedLeft = null;
         this.assignedRight = right;
+
+        if (left.get() instanceof Register) {
+            virtual_reg.add((VirtualRegister) left.get());
+        }
+
     }
 
     public MoveStatement(String opcode, SpecialRegister left, SpecialRegister right) {
@@ -63,8 +69,25 @@ public class MoveStatement implements Statement {
     }
 
     @Override
-    public List<Register> getUsedRegisters() {
+    public List<VirtualRegister> getUsedRegisters() {
         return List.copyOf(virtual_reg);
+    }
+
+    @Override
+    public void assign(VirtualRegister virtualRegister, USABLE_REGISTERS register) {
+        if (this.left.isPresent()) {
+            if (virtualRegister.equals(this.left.get())) {
+                this.assignedLeft = new VirtualRegister(register.ordinal());
+            } else if (this.right.isPresent()) {
+                if (virtualRegister.equals(this.right.get())) {
+                    this.assignedRight = new VirtualRegister(register.ordinal());
+                } else {
+                    throw new IllegalStateException("Cannot assign register " + register + " to " + this.right.get());
+                }
+            }
+        } else {
+            throw new IllegalStateException("Cannot assign register " + register + " to " + this.left.get());
+        }
     }
 
     @Override
@@ -77,15 +100,19 @@ public class MoveStatement implements Statement {
         if (this.assignedLeft != null) {
             if (assignedLeft instanceof SpecialRegister) {
                 l += SpecialRegister.toString(((SpecialRegister) assignedLeft).getSpecialRegister());
+                l += ", ";
             } else {
-                l += assignedLeft.toString();
+                l += mapRegistersToAasm(assignedLeft);
+                l += ", ";
             }
 
         } else if (left.isPresent()) {
             if (left.get() instanceof ConstValue) {
                 l += "$" + ((ConstValue) left.get()).getValue();
+                l += ", ";
             } else {
                 l += mapRegistersToAasm((Register) left.get());
+                l += ", ";
             }
         } else {
             l = "";
@@ -95,7 +122,7 @@ public class MoveStatement implements Statement {
             if (assignedRight instanceof SpecialRegister) {
                 r += SpecialRegister.toString(((SpecialRegister) assignedRight).getSpecialRegister());
             } else {
-                r += assignedRight.toString();
+                r += mapRegistersToAasm(assignedRight);
             }
         } else if (right.isPresent()) {
             r += mapRegistersToAasm(right.get());
