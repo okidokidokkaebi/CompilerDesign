@@ -36,28 +36,28 @@ public class SpecialRegister implements Register {
     public String toString() {
         switch (register) {
             case RAX -> {
-                return "%rax";
+                return "%eax";
             }
             case RBX -> {
-                return "%rbx";
+                return "%ebx";
             }
             case RCX -> {
-                return "%rcx";
+                return "%ecx";
             }
             case RDX -> {
-                return "%rdx";
+                return "%edx";
             }
             case RSI -> {
-                return "%rsi";
+                return "%esi";
             }
             case RDI -> {
-                return "%rdi";
+                return "%edi";
             }
             case RSP -> {
-                return "%rsp";
+                return "%esp";
             }
             case RBP -> {
-                return "%rbp";
+                return "%ebp";
             }
             default -> throw new IllegalArgumentException("Unknown special register: " + register);
         }
