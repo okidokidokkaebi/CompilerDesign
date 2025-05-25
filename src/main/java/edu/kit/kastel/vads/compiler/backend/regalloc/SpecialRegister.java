@@ -8,6 +8,22 @@ public class SpecialRegister implements Register {
         this.register = register;
     }
 
+    public SpecialRegister(int register) {
+        switch (register) {
+            case 0 -> this.register = SPECIAL_REGISTERS.RAX;
+            case 1 -> this.register = SPECIAL_REGISTERS.RBX;
+            case 2 -> this.register = SPECIAL_REGISTERS.RCX;
+            case 3 -> this.register = SPECIAL_REGISTERS.RDX;
+            case 4 -> this.register = SPECIAL_REGISTERS.RSI;
+            case 5 -> this.register = SPECIAL_REGISTERS.RDI;
+            case 6 -> this.register = SPECIAL_REGISTERS.RSP;
+            case 7 -> this.register = SPECIAL_REGISTERS.RBP;
+            default -> throw new IllegalArgumentException("Unknown special register: " + register);
+        }
+
+    }
+
+
     public SPECIAL_REGISTERS getSpecialRegister() {
         return register;
     }
@@ -17,7 +33,7 @@ public class SpecialRegister implements Register {
         return this.register.ordinal();
     }
 
-    public static String toString(SPECIAL_REGISTERS register) {
+    public String toString() {
         switch (register) {
             case RAX -> {
                 return "%rax";
@@ -28,14 +44,20 @@ public class SpecialRegister implements Register {
             case RCX -> {
                 return "%rcx";
             }
-            case RDI -> {
-                return "%rdi";
-            }
             case RDX -> {
                 return "%rdx";
             }
             case RSI -> {
                 return "%rsi";
+            }
+            case RDI -> {
+                return "%rdi";
+            }
+            case RSP -> {
+                return "%rsp";
+            }
+            case RBP -> {
+                return "%rbp";
             }
             default -> throw new IllegalArgumentException("Unknown special register: " + register);
         }

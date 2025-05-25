@@ -68,7 +68,7 @@ public class CodeGenerator {
                     // appendIndentedLine(builder, "mov", "%rdx", "%rax");
                 }
                 case ReturnNode ret -> {
-                    Register raxRegister = new VirtualRegister(SPECIAL_REGISTERS.RAX.ordinal());
+
                     for (Node predecessor : ret.predecessors()) {
                         if (predecessor instanceof ProjNode projNode) {
                             if (projNode.projectionInfo() == ProjNode.SimpleProjectionInfo.SIDE_EFFECT) {
@@ -76,7 +76,13 @@ public class CodeGenerator {
                             }
                         }
                         if (isValidOpNode.test(predecessor)) {
-                            statements.add(new MoveStatement("mov", Optional.of(predecessor.resultRegister()), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
+                            Register result_register = predecessor.resultRegister();
+                            if (result_register.getRegisterNo() < 8) {
+                                statements.add(new MoveStatement("mov", new SpecialRegister(result_register.getRegisterNo()), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
+                            } else {
+                                statements.add(new MoveStatement("mov", Optional.of(result_register), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
+                            }
+
                             statements.add(new MoveStatement("ret", Optional.empty(), Optional.empty()));
 
                             // appendIndentedLine(builder, "mov", predecessor.resultRegister(), raxRegister);
@@ -180,6 +186,10 @@ public class CodeGenerator {
             this.start = start;
             this.end = end;
             this.virtual = virtual;
+
+            if (virtual.getRegisterNo() == 0) {
+                System.out.println("Entered");
+            }
         }
 
         public int getStart() {
@@ -279,6 +289,8 @@ public class CodeGenerator {
 
     private void allocateRegisters(ArrayList<Statement> statements, StringBuilder builder) {
         ArrayList<LiveInterval> liveIntervals = createSortedIntervals(statements);
+
+        System.out.println(liveIntervals);
 
         List<LiveInterval> activeIntervals = new ArrayList<>();
         ArrayList<USABLE_REGISTERS> freeRegister = new ArrayList<>(Arrays.asList(

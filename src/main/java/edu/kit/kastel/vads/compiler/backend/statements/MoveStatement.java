@@ -18,12 +18,16 @@ public class MoveStatement implements Statement {
     private final Optional<ConstOrRegister> left;
     private final Optional<Register> right;
 
+    private final int create;
+
     @Nullable
     private Register assignedLeft = null;
     @Nullable
     private Register assignedRight;
 
     public MoveStatement(String opcode, Optional<ConstOrRegister> left, Optional<Register> right) {
+        this.create = 0;
+
         this.opcode = opcode;
         this.virtual_reg = new ArrayList<>();
 
@@ -42,6 +46,8 @@ public class MoveStatement implements Statement {
     }
 
     public MoveStatement(String opcode, Optional<ConstOrRegister> left, SpecialRegister right) {
+        this.create = 1;
+
         this.opcode = opcode;
         this.virtual_reg = new ArrayList<>();
 
@@ -52,12 +58,16 @@ public class MoveStatement implements Statement {
         this.assignedRight = right;
 
         if (left.get() instanceof Register) {
-            virtual_reg.add((VirtualRegister) left.get());
+            if (!(left.get() instanceof SpecialRegister) && !(left.get() instanceof ConstValue)) {
+                virtual_reg.add((VirtualRegister) left.get());
+            }
         }
 
     }
 
     public MoveStatement(String opcode, SpecialRegister left, SpecialRegister right) {
+        this.create = 2;
+
         this.opcode = opcode;
         this.virtual_reg = new ArrayList<>();
 
@@ -98,28 +108,26 @@ public class MoveStatement implements Statement {
 
         if (this.assignedLeft != null) {
             if (assignedLeft instanceof SpecialRegister) {
-                l += SpecialRegister.toString(((SpecialRegister) assignedLeft).getSpecialRegister());
-                l += ", ";
+                l += assignedLeft;
             } else {
                 l += mapRegistersToAasm(assignedLeft);
-                l += ", ";
             }
+            l += ", ";
 
         } else if (left.isPresent()) {
             if (left.get() instanceof ConstValue) {
                 l += "$" + ((ConstValue) left.get()).getValue();
-                l += ", ";
             } else {
                 l += mapRegistersToAasm((Register) left.get());
-                l += ", ";
             }
+            l += ", ";
         } else {
             l = "";
         }
 
         if (this.assignedRight != null) {
             if (assignedRight instanceof SpecialRegister) {
-                r += SpecialRegister.toString(((SpecialRegister) assignedRight).getSpecialRegister());
+                r += assignedRight;
             } else {
                 r += mapRegistersToAasm(assignedRight);
             }

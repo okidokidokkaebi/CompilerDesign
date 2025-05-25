@@ -7,4 +7,6 @@ public enum SPECIAL_REGISTERS {
     RDX,
     RSI,
     RDI,
+    RSP,
+    RBP
 }
