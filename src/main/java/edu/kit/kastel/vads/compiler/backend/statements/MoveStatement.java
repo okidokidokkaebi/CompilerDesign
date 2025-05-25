@@ -18,7 +18,10 @@ public class MoveStatement implements Statement {
     private final Optional<ConstOrRegister> left;
     private final Optional<Register> right;
 
-    private final int create;
+    /*
+        Debug Variable
+     */
+    private final int debugCreateInfo;
 
     @Nullable
     private Register assignedLeft = null;
@@ -26,7 +29,7 @@ public class MoveStatement implements Statement {
     private Register assignedRight;
 
     public MoveStatement(String opcode, Optional<ConstOrRegister> left, Optional<Register> right) {
-        this.create = 0;
+        this.debugCreateInfo = 0;
 
         this.opcode = opcode;
         this.virtual_reg = new ArrayList<>();
@@ -36,7 +39,11 @@ public class MoveStatement implements Statement {
 
         if (left.isPresent()) {
             if (left.get() instanceof Register) {
-                virtual_reg.add((VirtualRegister) left.get());
+                if (left.get() instanceof VirtualRegister) {
+                    virtual_reg.add((VirtualRegister) left.get());
+                } else if (left.get() instanceof SpecialRegister) {
+                    // everything good
+                }
             }
         }
 
@@ -46,7 +53,7 @@ public class MoveStatement implements Statement {
     }
 
     public MoveStatement(String opcode, Optional<ConstOrRegister> left, SpecialRegister right) {
-        this.create = 1;
+        this.debugCreateInfo = 1;
 
         this.opcode = opcode;
         this.virtual_reg = new ArrayList<>();
@@ -66,7 +73,7 @@ public class MoveStatement implements Statement {
     }
 
     public MoveStatement(String opcode, SpecialRegister left, SpecialRegister right) {
-        this.create = 2;
+        this.debugCreateInfo = 2;
 
         this.opcode = opcode;
         this.virtual_reg = new ArrayList<>();

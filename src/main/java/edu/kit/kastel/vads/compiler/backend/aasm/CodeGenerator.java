@@ -124,7 +124,11 @@ public class CodeGenerator {
     private static void handleProjNode(Node node, SPECIAL_REGISTERS reg) {
         if (node instanceof ProjNode projNode) {
             if (projNode.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT) {
-                projNode.setResultRegister(new VirtualRegister(reg.ordinal()));
+                if (reg.ordinal() < 8) {
+                    projNode.setResultRegister(new SpecialRegister(reg.ordinal()));
+                } else {
+                    projNode.setResultRegister(new VirtualRegister(reg.ordinal()));
+                }
             }
         }
     }
@@ -332,10 +336,12 @@ public class CodeGenerator {
             System.out.println("  " + allocs + ", " + mapToString(allocations.get(allocs)));
         }
 
+        System.out.println("Program with virtual registers:");
         for (Statement statement: statements) {
             System.out.println(statement);
         }
 
+        System.out.println("\nProgram with assigned registers:");
         for (Statement statement: statements) {
             for (VirtualRegister reg: statement.getUsedRegisters()) {
                 statement.assign(reg, allocations.get(reg));
