@@ -138,6 +138,7 @@ public class CodeGenerator {
         builder.append("""
                 .global main
                 .global _main
+                .global _send_sigfpe
                 .text
                 
                 main:
@@ -145,6 +146,12 @@ public class CodeGenerator {
                 movq %rax, %rdi
                 movq $0x3C, %rax
                 syscall
+                
+                _send_sigfpe:
+                    mov rax, 62
+                    mov rdi, 0
+                    mov rsi, 8
+                    syscall
                 
                 """);
 
