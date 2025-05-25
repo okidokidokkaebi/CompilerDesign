@@ -14,8 +14,8 @@ public class CodeGenerator {
     public final static int INDENT = 2;
 
     public final static String[] registers_64 = new String[]{
-            "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%rsp", "%rbp", "%r8", "%r9",
-            "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
+            "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%rsp", "%rbp",
+            "%r8",  "%r9",  "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"
     };
 
     private void dfs(Set<Node> visited, Stack<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder, ArrayList<Statement> statements) {
@@ -155,12 +155,7 @@ public class CodeGenerator {
 
             dfs(visited, stack, new CountingRegisterAllocator(), builder, statements);
 
-            for (Statement statement : statements) {
-                System.out.println(statement);
-            }
-
             allocateRegisters(statements, builder);
-
         }
 /*
         for (IrGraph graph : program) {
@@ -226,6 +221,30 @@ public class CodeGenerator {
 
     public String mapToString(USABLE_REGISTERS register) {
         switch (register) {
+            case RAX -> {
+                return "%rax";
+            }
+            case RBX -> {
+                return "%rbx";
+            }
+            case RDX -> {
+                return "%rdx";
+            }
+            case RSI -> {
+                return "%rsi";
+            }
+            case RBP -> {
+                return "%rbp";
+            }
+            case RDI -> {
+                return "%rdi";
+            }
+            case RCX -> {
+                return "%rcx";
+            }
+            case RSP -> {
+                return "%rsp";
+            }
             case R8 -> {
                 return "%r8";
             }
@@ -253,10 +272,9 @@ public class CodeGenerator {
             case SPILL -> {
                 return "%spill";
             }
-            default -> {
-                throw new IllegalStateException();
-            }
+
         }
+        return "";
     }
 
     private void allocateRegisters(ArrayList<Statement> statements, StringBuilder builder) {
@@ -286,7 +304,6 @@ public class CodeGenerator {
                 for (LiveInterval active: activeIntervals) {
                     usedRegisters.add(allocations.get(active.getVirtual()));
                 }
-                System.out.println("Used: " + usedRegisters);
 
                 USABLE_REGISTERS assigned = freeRegister.stream()
                         .filter(free -> !usedRegisters.contains(free)).findFirst().get();
@@ -298,14 +315,17 @@ public class CodeGenerator {
             }
         }
 
+        System.out.println("Allocated registers:");
         for (VirtualRegister allocs: allocations.keySet()) {
-            System.out.println("allocs: " + allocs + ", " + mapToString(allocations.get(allocs)));
+            System.out.println("  " + allocs + ", " + mapToString(allocations.get(allocs)));
         }
 
         for (Statement statement: statements) {
             for (VirtualRegister reg: statement.getUsedRegisters()) {
                 statement.assign(reg, allocations.get(reg));
             }
+
+            System.out.println(statement);
 
             builder.repeat(" ", INDENT)
                     .append(statement)
@@ -388,8 +408,6 @@ public class CodeGenerator {
         int regNo = reg.getRegisterNo();
         if (regNo < 0 || regNo >= registers_64.length) {
             // TODO variable needs to be put on stack
-            System.out.println(reg + " is not a valid register number");
-
             return "%spill";
             //throw new IllegalArgumentException("Invalid register number: " + regNo);
         }

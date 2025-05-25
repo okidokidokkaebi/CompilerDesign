@@ -76,18 +76,17 @@ public class MoveStatement implements Statement {
     @Override
     public void assign(VirtualRegister virtualRegister, USABLE_REGISTERS register) {
         if (this.left.isPresent()) {
-            if (virtualRegister.equals(this.left.get())) {
+            if (this.left.get().equals(virtualRegister)) {
                 this.assignedLeft = new VirtualRegister(register.ordinal());
-            } else if (this.right.isPresent()) {
-                if (virtualRegister.equals(this.right.get())) {
-                    this.assignedRight = new VirtualRegister(register.ordinal());
-                } else {
-                    throw new IllegalStateException("Cannot assign register " + register + " to " + this.right.get());
-                }
             }
-        } else {
-            throw new IllegalStateException("Cannot assign register " + register + " to " + this.left.get());
         }
+
+        if (this.right.isPresent()) {
+            if (this.right.get().equals(virtualRegister)) {
+                this.assignedRight = new VirtualRegister(register.ordinal());
+            }
+        }
+
     }
 
     @Override
