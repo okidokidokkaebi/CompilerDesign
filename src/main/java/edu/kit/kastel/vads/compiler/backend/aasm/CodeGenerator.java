@@ -22,7 +22,7 @@ public class CodeGenerator {
         while (!stack.isEmpty()) {
             Node active = stack.removeLast();
             for (Node predecessor : active.predecessors()) {
-                if (visited.add(predecessor) || predecessor instanceof ConstIntNode) {
+                if (visited.add(predecessor)) {
                     stack.add(predecessor);
                     dfs(visited, stack, allocator, builder, statements);
                 }
