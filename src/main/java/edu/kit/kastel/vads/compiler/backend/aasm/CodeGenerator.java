@@ -114,7 +114,8 @@ public class CodeGenerator {
 
         statements.add(new MoveStatement("mov", Optional.of(new ConstValue(0)), new SpecialRegister(SPECIAL_REGISTERS.RDX)));
         statements.add(new MoveStatement("mov", Optional.of(left), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
-        statements.add(new MoveStatement("div", Optional.empty(), Optional.of(right)));
+        statements.add(new MoveStatement("cdq", Optional.empty(), Optional.empty()));
+        statements.add(new MoveStatement("idiv", Optional.empty(), Optional.of(right)));
 
         // appendIndentedLine(builder, "mov", 0, "%rdx");
         // appendIndentedLine(builder, "mov", left, "%rax");
@@ -148,9 +149,9 @@ public class CodeGenerator {
                 syscall
                 
                 _send_sigfpe:
-                    mov rax, 62
-                    mov rdi, 0
-                    mov rsi, 8
+                    movq 62, %rax
+                    movq 0, %rdi
+                    movq 8, %rsi
                     syscall
                 
                 """);
