@@ -30,8 +30,28 @@ public class CodeGenerator {
 
             switch (active) {
                 case ConstIntNode c -> {
-                    c.setResultRegister(new VirtualRegister(allocator.getNew()));
-                    statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+                    if (!c.getConstructed()) {
+                        c.flagConstructed();
+                        c.setResultRegister(new VirtualRegister(allocator.getNew()));
+                        statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+
+                        IrGraph graph = c.graph();
+                        Set<Node> successors = graph.successors(c);
+
+                        boolean first = true;
+                        for (Node successor : successors) {
+                            if (first) { first = false; } else {
+                                ConstIntNode clone = new ConstIntNode(c.block(), c.value());
+                                successor.setPredecessor(successor.predecessors().indexOf(c), clone);
+                                clone.setResultRegister(new VirtualRegister(allocator.getNew()));
+                                clone.flagConstructed();
+                            }
+                        }
+                    } else {
+                        statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+                    }
+
+                    // c.setResultRegister(new VirtualRegister(allocator.getNew()));
                     // appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {
@@ -42,6 +62,8 @@ public class CodeGenerator {
                     // appendIndentedLine(builder, "add", left, right);
                 }
                 case SubNode sub -> {
+                    System.out.println("sub " + sub + " with left " + sub.predecessor(BinaryOperationNode.LEFT).resultRegister() +
+                    " and right " + sub.predecessor(BinaryOperationNode.RIGHT).resultRegister());
                     Register left = sub.predecessor(BinaryOperationNode.LEFT).resultRegister();
                     Register right = sub.predecessor(BinaryOperationNode.RIGHT).resultRegister();
                     sub.setResultRegister(left);
@@ -139,7 +161,6 @@ public class CodeGenerator {
         builder.append("""
                 .global main
                 .global _main
-                .global _send_sigfpe
                 .text
                 
                 main:
@@ -147,12 +168,6 @@ public class CodeGenerator {
                 movq %rax, %rdi
                 movq $0x3C, %rax
                 syscall
-                
-                _send_sigfpe:
-                    movq 62, %rax
-                    movq 0, %rdi
-                    movq 8, %rsi
-                    syscall
                 
                 """);
 
