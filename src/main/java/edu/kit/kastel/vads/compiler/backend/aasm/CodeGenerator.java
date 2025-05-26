@@ -30,8 +30,27 @@ public class CodeGenerator {
 
             switch (active) {
                 case ConstIntNode c -> {
-                    c.setResultRegister(new VirtualRegister(allocator.getNew()));
-                    statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+
+                    if (!c.getConstructed()) {
+                        c.flagConstructed();
+                        //c.setResultRegister(new VirtualRegister(allocator.getNew()));
+
+                        IrGraph graph = c.graph();
+                        List<Node> successors = graph.successors(c).stream().toList();
+
+
+                        for (Node successor : successors) {
+                            ConstIntNode clone = new ConstIntNode(c.block(), c.value());
+                            successor.setPredecessor(successor.predecessors().indexOf(c), clone);
+                            clone.setResultRegister(new VirtualRegister(allocator.getNew()));
+                            clone.flagConstructed();
+                            statements.add(new MoveStatement("mov", Optional.of(new ConstValue(clone.value())), Optional.of(clone.resultRegister())));
+
+                        }
+                    }
+
+//                    c.setResultRegister(new VirtualRegister(allocator.getNew()));
+//                    statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
                     // appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {
