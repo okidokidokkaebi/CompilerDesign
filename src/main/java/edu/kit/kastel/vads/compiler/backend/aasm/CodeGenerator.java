@@ -18,13 +18,16 @@ public class CodeGenerator {
             "%r8d",  "%r9d",  "%r10d", "%r11d", "%r12d", "%r13d", "%r14d", "%r15d"
     };
 
-    private void dfs(Set<Node> visited, ArrayList<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder, ArrayList<Statement> statements) {
+    /*
+        visitedFrom can only be null for the first visited node in the graph
+     */
+    private void dfs(Set<Node> visited, ArrayList<Node> stack, CountingRegisterAllocator allocator, StringBuilder builder, ArrayList<Statement> statements, Node visitedFrom) {
         while (!stack.isEmpty()) {
             Node active = stack.removeLast();
             for (Node predecessor : active.predecessors()) {
                 if (visited.add(predecessor) || predecessor instanceof ConstIntNode) {
                     stack.add(predecessor);
-                    dfs(visited, stack, allocator, builder, statements);
+                    dfs(visited, stack, allocator, builder, statements, active);
                 }
             }
 
@@ -33,13 +36,17 @@ public class CodeGenerator {
 
                     if (!c.getConstructed()) {
                         c.flagConstructed();
-                        //c.setResultRegister(new VirtualRegister(allocator.getNew()));
+                        c.setResultRegister(new VirtualRegister(allocator.getNew()));
 
                         IrGraph graph = c.graph();
                         List<Node> successors = graph.successors(c).stream().toList();
 
 
                         for (Node successor : successors) {
+                            if (visitedFrom.equals(successor)) {
+                                statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+                                continue;
+                            }
                             ConstIntNode clone = new ConstIntNode(c.block(), c.value());
                             successor.setPredecessor(successor.predecessors().indexOf(c), clone);
                             clone.setResultRegister(new VirtualRegister(allocator.getNew()));
@@ -190,7 +197,7 @@ public class CodeGenerator {
 
             ArrayList<Statement> statements = new ArrayList<>();
 
-            dfs(visited, stack, new CountingRegisterAllocator(), builder, statements);
+            dfs(visited, stack, new CountingRegisterAllocator(), builder, statements, null);
 
             allocateRegisters(statements, builder);
         }
