@@ -33,31 +33,58 @@ public class CodeGenerator {
 
             switch (active) {
                 case ConstIntNode c -> {
-
+                    /*
+                    // TODO: Note @author: This is code where each ConstIntNode is replaced with clones of this ConstIntNode,
+                            so that each successor has an unique clone with a different result register.
+                            Issue still remaining: apparently sometimes we add a BinaryOpNode multiple times in the resulting assembly because of this?
                     if (!c.getConstructed()) {
                         c.flagConstructed();
-                        c.setResultRegister(new VirtualRegister(allocator.getNew()));
-
                         IrGraph graph = c.graph();
-                        List<Node> successors = graph.successors(c).stream().toList();
+                        List<Node> individualSuccessors = graph.successors(c).stream().toList();
 
+//                        ArrayList<Node> successors = new ArrayList<>();
+//
+//                        // Now check if a node is double linked to the same node and add it to the successor List
+//                        for (Node individual : individualSuccessors) {
+//                            int amountEdges = individual.predecessors().stream()
+//                                    .filter(pred -> pred.equals(c))
+//                                    .toList()
+//                                    .size();
+//
+//                                for (int i = 0; i < amountEdges; i++) {
+//                                    successors.add(individual);
+//                                }
+//
+//                        }
 
-                        for (Node successor : successors) {
-                            if (visitedFrom.equals(successor)) {
-                                statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
-                                continue;
+                        for (Node successor : individualSuccessors) {
+                            System.out.println(successor);
+//                            successor.setPredecessor(successor.predecessors().indexOf(c), c);
+//                            statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+                            int co = 0;
+                            for (int i = 0; i < successor.predecessors().size(); i++) {
+                                ConstIntNode clone = new ConstIntNode(c.block(), c.value());
+                                System.out.println(++co);
+                                if (successor.predecessors().get(i) == c) {
+                                    successor.setPredecessor(i, clone);
+                                    clone.setResultRegister(new VirtualRegister(allocator.getNew()));
+                                    clone.flagConstructed();
+
+                                    statements.add(new MoveStatement("mov", Optional.of(new ConstValue(clone.value())), Optional.of(clone.resultRegister())));
+                                    break;
+                                }
                             }
-                            ConstIntNode clone = new ConstIntNode(c.block(), c.value());
-                            successor.setPredecessor(successor.predecessors().indexOf(c), clone);
-                            clone.setResultRegister(new VirtualRegister(allocator.getNew()));
-                            clone.flagConstructed();
-                            statements.add(new MoveStatement("mov", Optional.of(new ConstValue(clone.value())), Optional.of(clone.resultRegister())));
-
                         }
                     }
 
-//                    c.setResultRegister(new VirtualRegister(allocator.getNew()));
-//                    statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+                    */
+
+                    /*
+                    // TODO: Note @author: Das ist der Zustand wie wir ihn vorher hatten
+                    c.setResultRegister(new VirtualRegister(allocator.getNew()));
+                    statements.add(new MoveStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+                     */
+
                     // appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {

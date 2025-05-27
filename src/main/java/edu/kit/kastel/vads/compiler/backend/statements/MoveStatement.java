@@ -28,6 +28,10 @@ public class MoveStatement implements Statement {
     @Nullable
     private Register assignedRight;
 
+    /*
+        TODO: Instead of using "MoveStatement" and having different constructors, use one unified Statement class and
+         use different builder methods to create a Statement depending on the kind of statement
+     */
     public MoveStatement(String opcode, Optional<ConstOrRegister> left, Optional<Register> right) {
         this.debugCreateInfo = 0;
 
