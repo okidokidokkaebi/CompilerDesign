@@ -22,6 +22,14 @@ public final class ConstIntNode extends Node {
         return false;
     }
 
+    public boolean getConstructed() {
+        return this.constructed;
+    }
+
+    public void flagConstructed() {
+        this.constructed = true;
+    }
+
     @Override
     public int hashCode() {
         return this.value;
@@ -30,13 +38,5 @@ public final class ConstIntNode extends Node {
     @Override
     protected String info() {
         return "[" + this.value + "]";
-    }
-
-    public boolean getConstructed() {
-        return this.constructed;
-    }
-
-    public void flagConstructed() {
-        this.constructed = true;
     }
 }

@@ -10,7 +10,7 @@ import java.util.Optional;
 
 import static edu.kit.kastel.vads.compiler.backend.aasm.CodeGenerator.mapRegistersToAasm;
 
-public class MoveStatement implements Statement {
+public class ConcreteStatement implements Statement {
 
     private final String opcode;
     private final List<VirtualRegister> virtual_reg;
@@ -32,7 +32,7 @@ public class MoveStatement implements Statement {
         TODO: Instead of using "MoveStatement" and having different constructors, use one unified Statement class and
          use different builder methods to create a Statement depending on the kind of statement
      */
-    public MoveStatement(String opcode, Optional<ConstOrRegister> left, Optional<Register> right) {
+    public ConcreteStatement(String opcode, Optional<ConstOrRegister> left, Optional<Register> right) {
         this.debugCreateInfo = 0;
 
         this.opcode = opcode;
@@ -56,7 +56,7 @@ public class MoveStatement implements Statement {
         }
     }
 
-    public MoveStatement(String opcode, Optional<ConstOrRegister> left, SpecialRegister right) {
+    public ConcreteStatement(String opcode, Optional<ConstOrRegister> left, SpecialRegister right) {
         this.debugCreateInfo = 1;
 
         this.opcode = opcode;
@@ -76,7 +76,7 @@ public class MoveStatement implements Statement {
 
     }
 
-    public MoveStatement(String opcode, SpecialRegister left, SpecialRegister right) {
+    public ConcreteStatement(String opcode, SpecialRegister left, SpecialRegister right) {
         this.debugCreateInfo = 2;
 
         this.opcode = opcode;
