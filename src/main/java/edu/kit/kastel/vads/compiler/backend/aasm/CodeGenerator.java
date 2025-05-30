@@ -36,38 +36,50 @@ public class CodeGenerator {
 
             switch (active) {
                 case ConstIntNode c -> {
+//                    if (!c.getConstructed()) {
+//                        c.flagConstructed();
+//                        IrGraph graph = c.graph();
+//                        List<Node> individualSuccessors = graph.successors(c).stream().toList();
+//
+//                        // Now check if a node is double linked to the same node and add it to the successor List
+//                        for (Node individual : individualSuccessors) {
+//                            var duplicatedPredecessors = individual.predecessors().stream().filter(pred -> pred.equals(c)).toList();
+//                            if (duplicatedPredecessors.size() > 1) {
+//                                // set for "original"
+//                                c.setResultRegister(new VirtualRegister(allocator.getNew()));
+//                                statements.add(new ConcreteStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
+//                                // set for duplicates
+//                                for (int i = 1; i < duplicatedPredecessors.size(); i++) {
+//                                    // copy original
+//                                    ConstIntNode clone = new ConstIntNode(c.block(), c.value());
+//                                    individual.setPredecessor(i, clone);
+//                                    clone.setResultRegister(new VirtualRegister(allocator.getNew()));
+//                                    clone.flagConstructed();
+//
+//                                    statements.add(new ConcreteStatement("mov", Optional.of(new ConstValue(clone.value())), Optional.of(clone.resultRegister())));
+//                                }
+//                            }
+//
+//                        }
+//                    }
                     if (!c.getConstructed()) {
+                        c.setResultRegister(new VirtualRegister(allocator.getNew()));
                         c.flagConstructed();
-                        IrGraph graph = c.graph();
-                        List<Node> individualSuccessors = graph.successors(c).stream().toList();
-
-                        // Now check if a node is double linked to the same node and add it to the successor List
-                        for (Node individual : individualSuccessors) {
-                            var duplicatedPredecessors = individual.predecessors().stream().filter(pred -> pred.equals(c)).toList();
-                            if (duplicatedPredecessors.size() > 1) {
-                                // set for "original"
-                                c.setResultRegister(new VirtualRegister(allocator.getNew()));
-                                statements.add(new ConcreteStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
-                                // set for duplicates
-                                for (int i = 1; i < duplicatedPredecessors.size(); i++) {
-                                    // copy original
-                                    ConstIntNode clone = new ConstIntNode(c.block(), c.value());
-                                    individual.setPredecessor(i, clone);
-                                    clone.setResultRegister(new VirtualRegister(allocator.getNew()));
-                                    clone.flagConstructed();
-
-                                    statements.add(new ConcreteStatement("mov", Optional.of(new ConstValue(clone.value())), Optional.of(clone.resultRegister())));
-                                }
-                            }
-
-                        }
+                        statements.add(new ConcreteStatement("mov", Optional.of(new ConstValue(c.value())), Optional.of(c.resultRegister())));
                     }
+
+
+
                     // appendIndentedLine(builder, "mov", c.value(), c.resultRegister());
                 }
                 case AddNode add -> {
                     Register left = add.predecessor(LEFT).resultRegister();
                     Register right = add.predecessor(RIGHT).resultRegister();
-                    add.setResultRegister(right);
+
+                    Register result = new VirtualRegister(allocator.getNew());
+                    statements.add(new ConcreteStatement("mov", Optional.of(right), Optional.of(result)));
+
+                    add.setResultRegister(result);
                     //add.setResultRegister(new VirtualRegister(allocator.getNew()));
                     //statements.add(new ConcreteStatement("mov", Optional.of(right), Optional.of(add.resultRegister())));
                     statements.add(new ConcreteStatement("add", Optional.of(left), Optional.of(add.resultRegister())));
