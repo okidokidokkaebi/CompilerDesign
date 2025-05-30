@@ -88,15 +88,23 @@ public class CodeGenerator {
                 case SubNode sub -> {
                     Register left = sub.predecessor(LEFT).resultRegister();
                     Register right = sub.predecessor(RIGHT).resultRegister();
-                    sub.setResultRegister(left);
-                    statements.add(new ConcreteStatement("sub", Optional.of(right), Optional.of(left)));
+
+                    Register result = new VirtualRegister(allocator.getNew());
+                    sub.setResultRegister(result);
+
+                    statements.add(new ConcreteStatement("mov", Optional.of(left), Optional.of(result)));
+                    statements.add(new ConcreteStatement("sub", Optional.of(right), Optional.of(result)));
                     // appendIndentedLine(builder, "sub", right, left);
                 }
                 case MulNode mul -> {
                     Register left = mul.predecessor(LEFT).resultRegister();
                     Register right = mul.predecessor(RIGHT).resultRegister();
-                    mul.setResultRegister(right);
-                    statements.add(new ConcreteStatement("imul", Optional.of(left), Optional.of(right)));
+
+                    Register result = new VirtualRegister(allocator.getNew());
+                    mul.setResultRegister(result);
+
+                    statements.add(new ConcreteStatement("mov", Optional.of(right), Optional.of(result)));
+                    statements.add(new ConcreteStatement("imul", Optional.of(left), Optional.of(result)));
                     // appendIndentedLine(builder, "imul", left, right);
                 }
                 case DivNode div -> {
