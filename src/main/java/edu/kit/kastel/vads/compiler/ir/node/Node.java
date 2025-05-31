@@ -82,7 +82,7 @@ public sealed abstract class Node permits BinaryOperationNode, Block, ConstIntNo
     }
 
     protected static int predecessorHash(Node node, int predecessor) {
-        return node.predecessor(predecessor).hashCode();
-        //return System.identityHashCode(node.predecessor(predecessor));
+        //return node.predecessor(predecessor).hashCode();
+        return System.identityHashCode(node.predecessor(predecessor));
     }
 }
