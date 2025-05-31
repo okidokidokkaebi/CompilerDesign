@@ -109,14 +109,14 @@ public class CodeGenerator {
                 }
                 case DivNode div -> {
                     // write return register into child node (IDK why this is so complicated :/)
-                    div.graph().successors(div).forEach(suc -> handleProjNode(suc, SPECIAL_REGISTERS.RAX));
-                    divModOperation(div, statements);
+                    //div.graph().successors(div).forEach(suc -> handleProjNode(suc, SPECIAL_REGISTERS.RAX));
+                    divModOperation(div, statements, allocator);
                 }
                 case ModNode mod -> {
-                    mod.graph().successors(mod).forEach(su -> handleProjNode(su, SPECIAL_REGISTERS.RDX));
-                    divModOperation(mod, statements);
+                    //mod.graph().successors(mod).forEach(su -> handleProjNode(su, SPECIAL_REGISTERS.RDX));
+                    divModOperation(mod, statements, allocator);
                     // put correct result in %rax
-                    statements.add(new ConcreteStatement("mov", new SpecialRegister(SPECIAL_REGISTERS.RDX), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
+                    statements.add(new ConcreteStatement("mov", Optional.of(new SpecialRegister(SPECIAL_REGISTERS.RDX)), Optional.of(mod.resultRegister())));
                     // appendIndentedLine(builder, "mov", "%rdx", "%rax");
                 }
                 case ReturnNode ret -> {
@@ -155,7 +155,7 @@ public class CodeGenerator {
 
     Predicate<Node> isValidOpNode = predecessor -> (predecessor instanceof ProjNode node && node.projectionInfo() == ProjNode.SimpleProjectionInfo.RESULT) || predecessor instanceof BinaryOperationNode || predecessor instanceof ConstIntNode;
 
-    private static void divModOperation(Node opNode, List<Statement> statements) {
+    private static void divModOperation(Node opNode, List<Statement> statements, CountingRegisterAllocator allocator) {
         // %rax = %rax </> %rcx <- nothing to do after op
         // %rdx = %rax <%> %rcx <- move necessary (handle in caller)
         Register left = opNode.predecessor(LEFT).resultRegister();
@@ -165,6 +165,20 @@ public class CodeGenerator {
         statements.add(new ConcreteStatement("mov", Optional.of(left), new SpecialRegister(SPECIAL_REGISTERS.RAX)));
         statements.add(new ConcreteStatement("cdq", Optional.empty(), Optional.empty()));
         statements.add(new ConcreteStatement("idiv", Optional.empty(), Optional.of(right)));
+
+        Register result = new VirtualRegister(allocator.getNew());
+        opNode.setResultRegister(null);
+
+        // set Proj RESULT resultRegister
+        opNode.graph().successors(opNode).forEach(suc -> {
+            if (suc instanceof ProjNode projNode) {
+                projNode.setResultRegister(result);
+            } else {
+                throw new IllegalStateException("ProjNode has an unexpected predecessor: " + suc.getClass().getName());
+            }
+        });
+
+        statements.add(new ConcreteStatement("mov", Optional.of(new SpecialRegister(SPECIAL_REGISTERS.RAX)), Optional.of(result)));
 
         // appendIndentedLine(builder, "mov", 0, "%rdx");
         // appendIndentedLine(builder, "mov", left, "%rax");
