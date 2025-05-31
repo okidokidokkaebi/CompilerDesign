@@ -167,7 +167,8 @@ public class CodeGenerator {
         statements.add(new ConcreteStatement("idiv", Optional.empty(), Optional.of(right)));
 
         Register result = new VirtualRegister(allocator.getNew());
-        opNode.setResultRegister(null);
+        // We set the result register for this node to the same register, for modulo operations
+        opNode.setResultRegister(result);
 
         // set Proj RESULT resultRegister
         opNode.graph().successors(opNode).forEach(suc -> {
