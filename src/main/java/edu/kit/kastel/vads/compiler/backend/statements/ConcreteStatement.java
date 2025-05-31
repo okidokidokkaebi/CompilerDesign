@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static edu.kit.kastel.vads.compiler.backend.aasm.CodeGenerator.mapRegistersToAasm;
+import static edu.kit.kastel.vads.compiler.backend.regalloc.StatementRegisterAllocator.mapRegistersToAasm;
 
 public class ConcreteStatement implements Statement {
 
@@ -29,9 +29,8 @@ public class ConcreteStatement implements Statement {
     private Register assignedRight;
 
     /*
-        TODO: Instead of using "MoveStatement" and having different constructors, use one unified Statement class and
-         use different builder methods to create a Statement depending on the kind of statement
-     */
+        TODO: use different builder methods to create a Statement depending on the kind of statement, instead constructor overloading
+    */
     public ConcreteStatement(String opcode, Optional<ConstOrRegister> left, Optional<Register> right) {
         this.debugCreateInfo = 0;
 
