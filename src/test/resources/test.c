@@ -1,25 +1,22 @@
-int main () {
-  int a1=1;
-  int a2=2;
-  int a3=3;
-  int a4=4;
-  int a5=5;
-  int a6=6;
-  int a7=7;
-  int a8=8;
-  int a9=9;
-  int a10=10;
-  int a11=11;
-  int a12=12;
-  int a13=13;
-  int a14=14;
-  int a15=15;
-  int a16=16;
-  int a17=17;
-  int a18=18;
-  int a19=19;
-  int a20=20;
-  int a537=537;
+int main() {
+  int a;
+  int b;
+  int c = 63;
+  int d = 49;
+  int e = 61;
+  int f = 96;
+  int g = 51;
+  int i = 10;
+  int j = 31;
+  int k = 31;
+  int m = 30;
+  int q = 44;
+  int r = 21;
 
-  return (((((((((a1+a2+a3) * a4 * a5 * (a6+a7)) / a10 ) + a14+a20) % a9) + a8) * (a16-a15) * (a17+a18-a19)) + (a3+a8+a5-a4-a9+a6+a7)) % a16) + a537 -497;
+          /*    Epic tower of simple arithmetic operations - but reduced so I can actually read the program... */
+                           a = c%d + e/f/g - q/r;
+
+                          b = c/d - e/g - i/j + k/m;
+
+  return c;
 }
