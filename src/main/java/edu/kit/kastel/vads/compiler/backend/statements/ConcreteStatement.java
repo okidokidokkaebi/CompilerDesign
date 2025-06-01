@@ -107,6 +107,11 @@ public class ConcreteStatement implements Statement {
     }
 
     @Override
+    public String getOpCode() {
+        return opcode;
+    }
+
+    @Override
     public void assign(VirtualRegister virtualRegister, USABLE_REGISTERS register) {
         if (this.left.isPresent()) {
             if (this.left.get().equals(virtualRegister)) {

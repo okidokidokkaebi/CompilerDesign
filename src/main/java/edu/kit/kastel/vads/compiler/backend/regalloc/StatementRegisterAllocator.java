@@ -177,10 +177,28 @@ public class StatementRegisterAllocator {
             offsets.put(spilledRegister, 8 * (offsets.size() + 1));
         }
 
-
+        builder.repeat(" ", INDENT)
+                .append("push %rbp\n")
+                .repeat(" ", INDENT)
+                .append("mov %rsp, %rbp\n")
+                .repeat(" ", INDENT)
+                .append("sub $")
+                .append(offsets.size() * 8)
+                .append(", %rsp")
+                .append("\n");
 
         System.out.println("\nProgram with assigned registers:");
         for (Statement statement : statements) {
+            if (statement.getOpCode().equals("ret")) {
+                builder.repeat(" ", INDENT)
+                        .append("mov %rbp, %rsp\n")
+                        .repeat(" ", INDENT)
+                        .append("pop %rbp\n")
+                        .repeat(" ", INDENT)
+                        .append("ret\n");
+                return;
+            }
+
             for (VirtualRegister reg : statement.getUsedRegisters()) {
                 statement.assign(reg, allocations.get(reg));
             }

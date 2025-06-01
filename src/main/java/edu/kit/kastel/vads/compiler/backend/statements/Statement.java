@@ -12,4 +12,5 @@ public interface Statement {
     void assign(VirtualRegister virtualRegister, USABLE_REGISTERS register);
     boolean isSourceRegister(VirtualRegister register);
     boolean isDestinationRegister(VirtualRegister register);
+    String getOpCode();
 }
