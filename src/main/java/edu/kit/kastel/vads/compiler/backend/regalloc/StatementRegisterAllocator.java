@@ -217,7 +217,7 @@ public class StatementRegisterAllocator {
                                 .append("%ecx\n");
                         statement.assign(virt, USABLE_REGISTERS.RCX);
                     } else if (statement.isDestinationRegister(virt)) {
-                        statement.assign(virt, USABLE_REGISTERS.RDX);
+                        statement.assign(virt, USABLE_REGISTERS.RSI);
                     } else {
                         throw new AssertionError("Expected spilled register to be either the source or destination!");
                     }
@@ -232,7 +232,7 @@ public class StatementRegisterAllocator {
                     if (statement.isDestinationRegister(virt)) {
                         builder.repeat(" ", INDENT)
                                 .append("mov ")
-                                .append("%edx")
+                                .append("%esi")
                                 .append(", ")
                                 .append("-")
                                 .append(offsets.get(virt))
