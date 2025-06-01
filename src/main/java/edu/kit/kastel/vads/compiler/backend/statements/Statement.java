@@ -10,4 +10,6 @@ public interface Statement {
     String toString();
     List<VirtualRegister> getUsedRegisters();
     void assign(VirtualRegister virtualRegister, USABLE_REGISTERS register);
+    boolean isSourceRegister(VirtualRegister register);
+    boolean isDestinationRegister(VirtualRegister register);
 }

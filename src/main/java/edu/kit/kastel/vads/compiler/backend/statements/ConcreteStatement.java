@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static edu.kit.kastel.vads.compiler.backend.regalloc.RegisterBuilder.buildRegister;
 import static edu.kit.kastel.vads.compiler.backend.regalloc.StatementRegisterAllocator.mapRegistersToAasm;
 
 public class ConcreteStatement implements Statement {
@@ -24,7 +25,7 @@ public class ConcreteStatement implements Statement {
     private final int debugCreateInfo;
 
     @Nullable
-    private Register assignedLeft = null;
+    private Register assignedLeft;
     @Nullable
     private Register assignedRight;
 
@@ -93,20 +94,31 @@ public class ConcreteStatement implements Statement {
         return List.copyOf(virtual_reg);
     }
 
+    public boolean isSourceRegister(VirtualRegister register) {
+        return left.map(constOrRegister
+                -> register.equals(constOrRegister) || register.equals(assignedLeft)
+        ).orElseGet(() -> register.equals(assignedLeft));
+    }
+
+    public boolean isDestinationRegister(VirtualRegister register) {
+        return right.map(reg
+                -> register.equals(reg) || register.equals(assignedRight)
+        ).orElseGet(() -> register.equals(assignedRight));
+    }
+
     @Override
     public void assign(VirtualRegister virtualRegister, USABLE_REGISTERS register) {
         if (this.left.isPresent()) {
             if (this.left.get().equals(virtualRegister)) {
-                this.assignedLeft = new VirtualRegister(register.ordinal());
+                this.assignedLeft = buildRegister(register.ordinal());
             }
         }
 
         if (this.right.isPresent()) {
             if (this.right.get().equals(virtualRegister)) {
-                this.assignedRight = new VirtualRegister(register.ordinal());
+                this.assignedRight = buildRegister(register.ordinal());
             }
         }
-
     }
 
     @Override

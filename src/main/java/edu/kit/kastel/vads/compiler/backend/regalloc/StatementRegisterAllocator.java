@@ -38,7 +38,7 @@ public class StatementRegisterAllocator {
             this.end = end;
         }
 
-        public Register getVirtual() {
+        public VirtualRegister getVirtual() {
             return virtual;
         }
     }
@@ -124,10 +124,19 @@ public class StatementRegisterAllocator {
     static public void allocateRegisters(List<Statement> statements, StringBuilder builder) {
         ArrayList<LiveInterval> liveIntervals = createSortedIntervals(statements);
 
-        System.out.println(liveIntervals);
-
         List<LiveInterval> activeIntervals = new ArrayList<>();
-        ArrayList<USABLE_REGISTERS> freeRegister = new ArrayList<>(Arrays.asList(USABLE_REGISTERS.R8, USABLE_REGISTERS.R9, USABLE_REGISTERS.R10, USABLE_REGISTERS.R11, USABLE_REGISTERS.R12, USABLE_REGISTERS.R13, USABLE_REGISTERS.R14, USABLE_REGISTERS.R15));
+        ArrayList<USABLE_REGISTERS> freeRegister = new ArrayList<>(Arrays.asList(
+                USABLE_REGISTERS.R8,
+                USABLE_REGISTERS.R9,
+                USABLE_REGISTERS.R10,
+                USABLE_REGISTERS.R11,
+                USABLE_REGISTERS.R12,
+                USABLE_REGISTERS.R13,
+                USABLE_REGISTERS.R14,
+                USABLE_REGISTERS.R15)
+        );
+
+        ArrayList<VirtualRegister> spilledRegisters = new ArrayList<>();
 
         HashMap<VirtualRegister, USABLE_REGISTERS> allocations = new HashMap<>();
 
@@ -142,10 +151,11 @@ public class StatementRegisterAllocator {
 
                 USABLE_REGISTERS assigned = freeRegister.stream().filter(free -> !usedRegisters.contains(free)).findFirst().get();
 
-                allocations.put((VirtualRegister) interval.getVirtual(), assigned);
+                allocations.put(interval.getVirtual(), assigned);
                 activeIntervals.add(interval);
             } else {
-                allocations.put((VirtualRegister) interval.getVirtual(), USABLE_REGISTERS.SPILL);
+                allocations.put(interval.getVirtual(), USABLE_REGISTERS.SPILL);
+                spilledRegisters.add(interval.getVirtual());
             }
         }
 
@@ -159,6 +169,16 @@ public class StatementRegisterAllocator {
             System.out.println(statement);
         }
 
+        System.out.println("Spilled registers:" + spilledRegisters);
+
+        // Assign spilled register offset
+        Map<VirtualRegister, Integer> offsets = new HashMap<>();
+        for (var spilledRegister : spilledRegisters) {
+            offsets.put(spilledRegister, 8 * (offsets.size() + 1));
+        }
+
+
+
         System.out.println("\nProgram with assigned registers:");
         for (Statement statement : statements) {
             for (VirtualRegister reg : statement.getUsedRegisters()) {
@@ -167,7 +187,42 @@ public class StatementRegisterAllocator {
 
             System.out.println(statement);
 
+            for (var virt : statement.getUsedRegisters()) {
+                if (spilledRegisters.contains(virt)) {
+                    if (statement.isSourceRegister(virt)) {
+                        builder.repeat(" ", INDENT)
+                                .append("mov ")
+                                .append("-")
+                                .append(offsets.get(virt))
+                                .append("(%rbp)")
+                                .append(", ")
+                                .append("%ecx\n");
+                        statement.assign(virt, USABLE_REGISTERS.RCX);
+                    } else if (statement.isDestinationRegister(virt)) {
+                        statement.assign(virt, USABLE_REGISTERS.RDX);
+                    } else {
+                        throw new AssertionError("Expected spilled register to be either the source or destination!");
+                    }
+                }
+            }
+
             builder.repeat(" ", INDENT).append(statement).append("\n");
+
+            // store spilled register result on stack
+            for (var virt : statement.getUsedRegisters()) {
+                if (spilledRegisters.contains(virt)) {
+                    if (statement.isDestinationRegister(virt)) {
+                        builder.repeat(" ", INDENT)
+                                .append("mov ")
+                                .append("%edx")
+                                .append(", ")
+                                .append("-")
+                                .append(offsets.get(virt))
+                                .append("(%rbp)")
+                                .append("\n");
+                    }
+                }
+            }
         }
 
     }
