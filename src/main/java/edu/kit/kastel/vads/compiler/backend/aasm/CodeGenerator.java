@@ -24,8 +24,6 @@ public class CodeGenerator {
 
     private void dfs(Set<Node> visited, List<Node> stack, CountingRegisterAllocator allocator, List<Statement> statements) {
         while (!stack.isEmpty()) {
-            //System.out.println("\nStack: " + stack);
-            //System.out.println("Visited: " + visited);
             Node active = stack.removeLast();
             for (Node predecessor : active.predecessors()) {
                 if (visited.add(predecessor) || predecessor instanceof ConstIntNode) {
@@ -33,7 +31,6 @@ public class CodeGenerator {
                     dfs(visited, stack, allocator, statements);
                 }
             }
-            //System.out.println("IS on active node: " + active + " with predecessors: " + active.predecessors());
 
             switch (active) {
                 case ConstIntNode c -> {
